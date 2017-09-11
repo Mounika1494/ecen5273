@@ -19,7 +19,7 @@
 int main (int argc, char * argv[] )
 {
 
-
+        char *command = malloc(100*(sizeof(char)));
 	int sock;                           //This will be our socket
 	struct sockaddr_in sin, remote;     //"Internet socket address structure"
 	unsigned int remote_length;         //length of the sockaddr_in structure
@@ -69,8 +69,31 @@ int main (int argc, char * argv[] )
 
 	printf("The client says %s\n", buffer);
         
-	char msg[] = "orange";
-	nbytes = sendto(sock,msg,strlen(msg),0,(struct sockaddr *)&remote,remote_length);
+	if(strstr(buffer,"get") != NULL)
+        {
+        command = strtok(buffer," ");
+        printf("%s\n",command);
+        if(command != NULL)
+        {
+        command = strtok(NULL," ");
+        printf("%s",command);
+        }
+        command[4] = NULL;
+        FILE* filein;
+        char data[500];
+        filein = fopen(command,"r");
+        if(filein == NULL)
+        {
+        printf("file can't be opened\n");
+        }  
+        while(fgets(data,500,(FILE*)filein))
+        {
+        printf("%s",data);
+        nbytes = sendto(sock,data,strlen(data),0,(struct sockaddr *)&remote,remote_length);
+        bzero(data,sizeof(data));
+        }
+        fclose(filein);
+        }
         }
 	close(sock);
 }
