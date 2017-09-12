@@ -71,17 +71,17 @@ int main (int argc, char * argv[] )
         
 	if(strstr(buffer,"get") != NULL)
         {
-        command = strtok(buffer," ");
-        printf("%s\n",command);
-        if(command != NULL)
-        {
-        command = strtok(NULL," ");
-        printf("%s",command);
-        }
-        command[4] = NULL;
-        FILE* filein;
+           command = strtok(buffer," ");
+           printf("%s\n",command);
+           if(command != NULL)
+           {
+            command = strtok(NULL," ");
+            printf("%s",command);
+           }
+           command[4] = NULL;
+        /*FILE* filein;
         char data[500];
-        filein = fopen(command,"r");
+        filein = fopen(command,"rb");
         if(filein == NULL)
         {
         printf("file can't be opened\n");
@@ -92,6 +92,35 @@ int main (int argc, char * argv[] )
         nbytes = sendto(sock,data,strlen(data),0,(struct sockaddr *)&remote,remote_length);
         bzero(data,sizeof(data));
         }
+        fclose(filein);
+        }*/
+        FILE* filein;
+        long lsize;
+        char *data;
+        filein = fopen("foo1","r");
+        if(filein == NULL)
+        {
+        printf("file can't be opened\n");
+        } 
+        printf("opened file\n");
+        //get its size
+        fseek(filein, 0, SEEK_END);
+        lsize = ftell(filein);
+        printf("size of image is %d\n",lsize);
+        rewind (filein);
+        printf("not able to rewind\n");
+        //malloc the buffer big enough for image data
+
+        data = malloc (lsize * sizeof(char));
+        printf("data is at %d\n",data);
+        if(data == NULL)
+        { 
+         printf("no memory\n");
+        }
+        //read image data into buffer
+        fread (data,1,lsize,filein);
+        printf("%s",data);
+        nbytes = sendto(sock,data,strlen(data),0,(struct sockaddr *)&remote,remote_length);
         fclose(filein);
         }
         }

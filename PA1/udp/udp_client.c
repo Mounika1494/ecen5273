@@ -12,7 +12,7 @@
 #include <memory.h>
 #include <errno.h>
 
-#define MAXBUFSIZE 500
+#define MAXBUFSIZE 30000
 
 /* You will have to modify the program below */
 
@@ -75,12 +75,13 @@ int main (int argc, char * argv[])
 	bzero(buffer,sizeof(buffer));
 	//nbytes = **** CALL RECVFROM() HERE ****; 
         FILE *fp; 
-        fp = fopen("foo1_client","w+");
+        fp = fopen("foo1_client.txt","w+");
         if(fp == NULL)
         printf("file can't be opened\n");
         while(nbytes!=NULL)
         {
         nbytes = recvfrom(sock,buffer,sizeof(buffer),0,(struct sockaddr *)&remote,(unsigned int *)&remote_length);
+        printf("%d\n",nbytes);
 	printf("%s", buffer);
         if(fwrite(buffer,1,sizeof(buffer),fp)<0)
         {
@@ -88,6 +89,7 @@ int main (int argc, char * argv[])
         }
         bzero(buffer,sizeof(buffer));
         }
+        fclose(fp);
 	close(sock);
 
 }
