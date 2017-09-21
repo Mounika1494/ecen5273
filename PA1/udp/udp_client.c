@@ -17,12 +17,11 @@
 
 typedef enum
 {
-
-GET = 1,
-PUT = 2,
-DELETE = 3,
-LIST_FILES = 4,
-EXIT = 5
+     GET = 1,
+     PUT = 2,
+     DELETE = 3,
+     LIST_FILES = 4,
+     EXIT = 5
 }commands;
 
 uint8_t user_command()
@@ -66,66 +65,74 @@ uint8_t user_command()
 
 int recv_file(int sock,struct sockaddr_in remote,char *file_name,size_t size)
 {
-       char *buffer = malloc(size*(sizeof(char)));
-       int nbytes = 0;
-       unsigned int remote_length = 0;
-       bzero(buffer,size*(sizeof(char)));
-       remote_length = sizeof(remote);
-        //recieve the data from server
-       nbytes = recvfrom(sock,buffer,size*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int*)&remote_length);
-        if(nbytes == 0)
-        return 0;
-        printf("recieved %d\n",nbytes);
-        printf("%s",buffer);
-        //write recieved data to the file
-        FILE *fp; 
-        fp = fopen(file_name,"w+");
-        if(fp == NULL)
-        printf("file can't be opened\n");
-        if(fwrite(buffer,1,size*sizeof(char),fp)<0)
-        {
-         printf("error writing file\n");
-	return 0;
-        }
-        bzero(buffer,size*sizeof(char));
-        fclose(fp);
-return 1;
-}
+      unsigned int remote_length = 0;
+      remote_length = sizeof(remote);
+      FILE *fp = NULL;
+      int packet_size = 1000;
+      int nmemb = 0;
+      int nbytes = 0;
+      size_t data_read = 0; 
+      char *buffer = malloc(packet_size*(sizeof(char)));
+      bzero(buffer,packet_size*(sizeof(char)));
+      //nmemb = size/packet_size;
+      //if(size%packet_size>0)
+      //nmemb++;
+      //printf("number of buffers is %d\n",nmemb);
+      fp = fopen(file_name,"w+");
+      //recieve the data from server
+      while(data_read<size)
+      {
+      nbytes = recvfrom(sock,buffer,packet_size*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int*)&remote_length);
+      //write recieved data to the file 
+      if(fp == NULL)
+      printf("file can't be opened\n");
+      if(fwrite(buffer,1,packet_size,fp)<0)
+      {
+      printf("error writing file\n");
+      return 0;
+      }
+      bzero(buffer,packet_size*sizeof(char));
+      data_read=data_read+packet_size;
+      printf("bytes recieved is %d\n",data_read);
+      }
+      printf("file close return value is %d\n",fclose(fp));
+      return 1;
 
+}
 size_t recv_fileinfo(int sock,struct sockaddr_in remote)
 {
-	int nbytes =0;
-	unsigned int remote_length = 0;
-	char* file_info = (char*)malloc(100*sizeof(char));
-        size_t size = 0;
-        bzero(file_info,100*sizeof(char));
-        remote_length = sizeof(remote);
-	nbytes = recvfrom(sock,file_info,sizeof(file_info),0,(struct sockaddr *)&remote,(unsigned int *)&remote_length);
-	size = atoi(file_info);
-	printf("size is %lu\n",size);
-	return size;
+       int nbytes =0;
+       unsigned int remote_length = 0;
+       char* file_info = (char*)malloc(100*sizeof(char));
+       size_t size = 0;
+       bzero(file_info,100*sizeof(char));
+       remote_length = sizeof(remote);
+       nbytes = recvfrom(sock,file_info,100*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int *)&remote_length);
+       printf("file_info buffer has %s\n",file_info);
+       size = atoi(file_info);
+       printf("size is %lu\n",size);
+       return size;
 }
 
 void send_fileinfo(int sock,struct sockaddr_in remote,char *filename)
 {
-  FILE* fp = NULL;
-  size_t size = 0;
-  char* file_info = (char *)malloc(100*sizeof(char));
-  fp = fopen(filename,"r");
-  if(fp == NULL)
-  {
-    printf("file can't be opened\n");
-  } 
-  //get its size
-  fseek(fp, 0, SEEK_END);
-  size = ftell(fp);
-  rewind (fp);
-  printf("size of image is %lu\n",size);
-  
-  //forming packet
-  strncpy(file_info,"00000000",8);
-  //strcat(file_info,size);
-  printf("1st packet sent is %s\n",file_info);
+        FILE* fp = NULL;
+        size_t size = 0;
+        char* file_info = (char *)malloc(100*sizeof(char));
+        fp = fopen(filename,"r");
+        if(fp == NULL)
+        {
+        printf("file can't be opened\n");
+        } 
+        //get its size
+        fseek(fp, 0, SEEK_END);
+        size = ftell(fp);
+        rewind (fp);
+        printf("size of image is %lu\n",size);
+        //forming packet
+        strncpy(file_info,"00000000",8);
+        //strcat(file_info,size);
+        printf("1st packet sent is %s\n",file_info);
 }
 
 
@@ -141,6 +148,7 @@ int main (int argc, char * argv[])
         unsigned int remote_length;
         struct sockaddr_in from_addr;
         uint8_t option = 0;
+        
 	
 
 	if (argc < 3)
@@ -181,9 +189,10 @@ int main (int argc, char * argv[])
                      size = recv_fileinfo(sock,remote);
                      if(recv_file(sock,remote,filename,size))
                      {
-                    // sendto(sock,"Got it",strlen("Got it"),0,(struct sockaddr *)&remote,sizeof(remote));
+                     sendto(sock,"ACK",strlen("ACK"),0,(struct sockaddr *)&remote,sizeof(remote));
                      printf("successfully recieved the file\n");
                      }
+         
                      break;
         }
         	close(sock);
