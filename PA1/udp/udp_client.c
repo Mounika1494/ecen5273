@@ -24,6 +24,23 @@ typedef enum
      EXIT = 5
 }commands;
 
+char* itoa(int num,char *str)
+{
+   if(str == NULL)
+   return NULL;
+   sprintf(str,"%d",num);
+   return str;
+}
+
+uint8_t check_ack(int sock,struct sockaddr_in remote,char *ack)
+{
+   if(!(strcmp(ack,"ACK")))
+   {
+   printf("ack is recieved\n");
+   }
+
+}
+
 uint8_t user_command()
 {
      char *user_input = malloc(25*(sizeof(char)));
@@ -129,26 +146,65 @@ size_t recv_fileinfo(int sock,struct sockaddr_in remote)
        return size;
 }
 
-void send_fileinfo(int sock,struct sockaddr_in remote,char *filename)
+size_t send_fileinfo(int sock,struct sockaddr_in remote,char *filename)
 {
-        FILE* fp = NULL;
-        size_t size = 0;
-        char* file_info = (char *)malloc(100*sizeof(char));
-        fp = fopen(filename,"r");
-        if(fp == NULL)
-        {
-        printf("file can't be opened\n");
-        } 
-        //get its size
-        fseek(fp, 0, SEEK_END);
-        size = ftell(fp);
-        rewind (fp);
-        printf("size of image is %lu\n",size);
-        //forming packet
-        strncpy(file_info,"00000000",8);
-        //strcat(file_info,size);
-        printf("1st packet sent is %s\n",file_info);
+      FILE* fp = NULL;
+      size_t size = 0;
+      char* file_info = (char *)malloc(100*sizeof(char));
+      fp = fopen(filename,"rb+");
+      if(fp == NULL)
+      {
+      printf("file can't be opened\n");
+      }
+      //get its size
+      fseek(fp, 0, SEEK_END);
+      size = ftell(fp);
+      rewind (fp);
+      printf("size of file is %lu\n",size);
+      if(itoa(size,file_info)!= NULL)
+      printf("size in string is %s\n",file_info);
+      sendto(sock,file_info,strlen(file_info),0,(struct sockaddr *)&remote,sizeof(remote));
+      return size;
+
 }
+
+int send_file(int sock,struct sockaddr_in remote,char *filename,size_t size)
+{
+      FILE* filein = NULL;
+      int nbytes = 0;
+      int read_bytes = 0;
+      int packet_size = 1000;
+      int nmemb = 0;
+      char *data = malloc(packet_size * sizeof(char));
+      if(data == NULL)
+      {
+      printf("could'nt allocate memory\n");
+      }
+      filein = fopen(filename,"rb+");
+      if(filein == NULL)
+      {
+      printf("file can't be opened\n");
+      }
+
+      while(fread(data,1,packet_size,filein))
+      {
+      int i=0;
+      //printf("number of bytes read is %d\n",read_bytes);
+      while(i<2)
+      {
+      nbytes = sendto(sock,data,packet_size*sizeof(char),0,(struct sockaddr *)&remote,sizeof(remote));
+      if(nbytes == packet_size)
+      i++;
+      }
+      read_bytes=read_bytes+nbytes;
+      printf("number of bytes sent is %d\n",read_bytes);
+      for(int i=0;i<100000;i++);
+      }
+      fclose(filein);
+      return 1;
+
+}
+
 
 
 int main (int argc, char * argv[])

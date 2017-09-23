@@ -132,11 +132,70 @@ int send_file(int sock,struct sockaddr_in remote,char *filename,size_t size)
 
 }
 
-char* buffer_remove_index(char* file_info)
+int recv_file(int sock,struct sockaddr_in remote,char *file_name,size_t size)
 {
-      char *index = malloc(8*sizeof(char));
-      strncpy(file_info,index,8);
-      return(file_info+8);
+      unsigned int remote_length = 0;
+      remote_length = sizeof(remote);
+      FILE *fp = NULL;
+      int packet_size = 1000;
+      int nmemb = 0;
+      int nbytes = 0;
+      size_t data_read = 0;
+      int result = 0;
+      char *file = malloc(size*(sizeof(char)));
+      char *buffer = NULL;
+      char *buffer1 = malloc(packet_size*(sizeof(char)));
+      char *buffer2 = malloc(packet_size*(sizeof(char)));
+      bzero(buffer1,packet_size*(sizeof(char)));
+      bzero(buffer2,packet_size*(sizeof(char)));
+      fp = fopen(file_name,"w+");
+      //recieve the data from server
+      while(data_read<size)
+      {
+      recvfrom(sock,buffer1,packet_size*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int*)&remote_length);
+      recvfrom(sock,buffer2,packet_size*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int *)&remote_length);
+      result = strcmp(buffer1,buffer2);
+      if(result >= 0)
+      {
+      printf("both packets are recieved\n");
+      buffer = buffer1;
+      bzero(buffer2,packet_size*(sizeof(char)));
+      }
+      else if(result < 0)
+      {
+      buffer = buffer2;
+      bzero(buffer1,packet_size*(sizeof(char)));
+      }
+      memcpy(file+data_read,buffer,packet_size);
+      bzero(buffer,packet_size*sizeof(char));
+      data_read=data_read+packet_size;
+      printf("bytes recieved is %d\n",data_read);
+      }
+      printf("size of file is %d\n",strlen(file));
+      if(fp == NULL)
+      return 0;
+      if(fwrite(file,1,size,fp)<0)
+      {
+      printf("error writing file\n");
+      return 0;
+      }
+      printf("file close return value is %d\n",fclose(fp));
+      return 1;
+}
+
+size_t recv_fileinfo(int sock,struct sockaddr_in remote)
+{
+       int nbytes =0;
+       unsigned int remote_length = 0;
+       char* file_info = (char*)malloc(100*sizeof(char));
+       size_t size = 0;
+       bzero(file_info,100*sizeof(char));
+       remote_length = sizeof(remote);
+       nbytes = recvfrom(sock,file_info,100*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int *)&remote_length);
+       printf("file_info buffer has %s\n",file_info);
+       size = atoi(file_info);
+       printf("size is %lu\n",size);
+       return size;
 }
 
 int main (int argc, char * argv[] )
@@ -212,7 +271,7 @@ int main (int argc, char * argv[] )
                    size = send_fileinfo(sock,remote,"files.txt");
                    if(send_file(sock,remote,filename,size))
                    {
-                   printf("sendig the list of files\n");
+                   printf("sending the list of files\n");
                    nbytes = recvfrom(sock,ack,10*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int*)&remote_length);
                    if(nbytes != 0)
                    check_ack(sock,remote,ack);
