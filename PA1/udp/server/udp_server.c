@@ -46,6 +46,7 @@ uint8_t check_ack(int sock,struct sockaddr_in remote,char *ack)
 uint8_t command_decode(char *command)
 {
       uint8_t cmd_recieved = 0;
+      printf("command is %s",command);
       if(!(strcmp(command,"get")))
       {
       printf("client wants to get a file\n");
@@ -73,6 +74,7 @@ uint8_t command_decode(char *command)
      }
     return cmd_recieved;
 }
+
 size_t send_fileinfo(int sock,struct sockaddr_in remote,char *filename)
 {
       FILE* fp = NULL;
@@ -240,6 +242,8 @@ int main (int argc, char * argv[] )
         {
 	//waits for an incoming message
         nbytes = recvfrom(sock,command,10*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int *)&remote_length);
+        if(nbytes != 0)
+        {
         printf("client says %s\n",command);
         option = command_decode(command);
         switch(option)
@@ -298,16 +302,19 @@ int main (int argc, char * argv[] )
                   break;
                   
          case EXIT:
+                  printf("closing the server\n");
                   return_value = close(sock);
                   if(return_value == 0)
                   printf("connection closed\n");
+                  return 0;   
                   break;                   
          default:
                   break;
                  
                            
-         }
-                    
+          }
+      
+         }// bzero(command,10);              
       }  
 }
 

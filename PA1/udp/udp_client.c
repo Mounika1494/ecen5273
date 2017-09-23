@@ -76,6 +76,7 @@ uint8_t user_command()
      {
       op_selected = EXIT;
      }
+     printf("option selected is %d\n",op_selected);
      return op_selected;
 
 }
@@ -242,7 +243,8 @@ int main (int argc, char * argv[])
 	}
         remote_length = sizeof(remote);
         printf("connected to the server\n");
-        
+        //while(1)
+        //{
         //get userinput
          option = user_command();
          while(!option)
@@ -324,6 +326,6 @@ int main (int argc, char * argv[])
                    break;
                    
         }
-        	close(sock);
+   close(sock);
 }
 
