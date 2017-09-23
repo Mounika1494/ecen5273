@@ -149,6 +149,7 @@ int recv_file(int sock,struct sockaddr_in remote,char *file_name,size_t size)
       bzero(buffer1,packet_size*(sizeof(char)));
       bzero(buffer2,packet_size*(sizeof(char)));
       fp = fopen(file_name,"w+");
+      printf("size is %lu\n",size);
       //recieve the data from server
       while(data_read<size)
       {
@@ -205,6 +206,7 @@ int main (int argc, char * argv[] )
         char *command = malloc(10*(sizeof(char)));
         char *ack = malloc(10*sizeof(char));
         size_t size;
+        int return_value;
         uint8_t option = 0;
 	int sock;                           //This will be our socket
 	struct sockaddr_in sin, remote;     //"Internet socket address structure"
@@ -258,6 +260,7 @@ int main (int argc, char * argv[] )
           case PUT:
                    recvfrom(sock,filename,100*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int *)&remote_length);
                    printf("filename is %s\n",filename);
+                   size = recv_fileinfo(sock,remote);
                    if(recv_file(sock,remote,filename,size))
                    {
                    printf("recieved the file\n");
@@ -267,14 +270,15 @@ int main (int argc, char * argv[] )
                    break;
           
           case LIST_FILES:
-                   system("ls > files.txt")
+                   system("ls > files.txt");
                    size = send_fileinfo(sock,remote,"files.txt");
-                   if(send_file(sock,remote,filename,size))
+                   if(send_file(sock,remote,"files.txt",size))
                    {
                    printf("sending the list of files\n");
                    nbytes = recvfrom(sock,ack,10*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int*)&remote_length);
                    if(nbytes != 0)
                    check_ack(sock,remote,ack);
+                   }
                    break;
          
           case DELETE:
@@ -282,24 +286,23 @@ int main (int argc, char * argv[] )
                   printf("client wants to delete %s\n",filename);
                   char *delete_command =  malloc(105*sizeof(char));
                   strcpy(delete_command,"rm -f ");
-                  strncpy(delete_command+5,filename,strlen(filename));
+                  strncpy(delete_command+6,filename,strlen(filename));
                   printf("command executing is %s\n",delete_command);
                   if(system(delete_command) == -1)
                   printf("error in deletind file\n");
                   else
                   {
                   printf("deleted successfully\n");
-                  sendto(sock,"ACK",strlen("ACK"),0,(struct sockaddr *)&remote,(unsigned int*)&remote_length);
+                  sendto(sock,"ACK",strlen("ACK"),0,(struct sockaddr *)&remote,sizeof(remote));
                   }
                   break;
                   
          case EXIT:
-                  int return_value;
                   return_value = close(sock);
                   if(return_value == 0)
-                  printf("connection closed\n");                   
+                  printf("connection closed\n");
+                  break;                   
          default:
-                 
                   break;
                  
                            
