@@ -118,10 +118,14 @@ int send_file(int sock,struct sockaddr_in remote,char *filename,size_t size)
       
       while(fread(data,1,packet_size,filein))
       {
+      int i=0;
       //printf("number of bytes read is %d\n",read_bytes);
+      while(i<2)
+      {
       nbytes = sendto(sock,data,packet_size*sizeof(char),0,(struct sockaddr *)&remote,sizeof(remote));
-      if(nbytes == 0)
-      return 0;
+      if(nbytes == packet_size)
+      i++;
+      }
       read_bytes=read_bytes+nbytes;
       printf("number of bytes sent is %d\n",read_bytes);
       for(int i=0;i<1000000;i++);
