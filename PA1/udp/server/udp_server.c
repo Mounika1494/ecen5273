@@ -37,10 +37,10 @@ char* itoa(int num,char *str)
 
 uint8_t check_ack(int sock,struct sockaddr_in remote,char *ack)
 {
-if(!(strcmp(ack,"ACK")))
-{
-printf("ack is recieved\n");
-}
+   if(!(strcmp(ack,"ACK")))
+   {
+   printf("ack is recieved\n");
+   }
 
 }
 uint8_t command_decode(char *command)
@@ -90,9 +90,6 @@ size_t send_fileinfo(int sock,struct sockaddr_in remote,char *filename)
       printf("size of file is %lu\n",size);
       if(itoa(size,file_info)!= NULL)
       printf("size in string is %s\n",file_info);
-      //forming packet
-      //strncpy(file_info,"00000000",8);
-      //strcat(file_info,size);
       sendto(sock,file_info,strlen(file_info),0,(struct sockaddr *)&remote,sizeof(remote));
       return size;
   
@@ -128,7 +125,7 @@ int send_file(int sock,struct sockaddr_in remote,char *filename,size_t size)
       }
       read_bytes=read_bytes+nbytes;
       printf("number of bytes sent is %d\n",read_bytes);
-      for(int i=0;i<1000000;i++);
+      for(int i=0;i<100000;i++);
       }
       fclose(filein);
       return 1;
@@ -196,12 +193,60 @@ int main (int argc, char * argv[] )
                     nbytes = recvfrom(sock,ack,10*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int*)&remote_length);
                     if(nbytes != 0)
                     check_ack(sock,remote,ack);
+                    bzero(filename,100);
                     }
                     break;
+          case PUT:
+                   recvfrom(sock,filename,100*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int *)&remote_length);
+                   printf("filename is %s\n",filename);
+                   if(recv_file(sock,remote,filename,size))
+                   {
+                   printf("recieved the file\n");
+                   sendto(sock,"ACK",strlen("ACK"),0,(struct sockaddr *)&remote,sizeof(remote));
+                   }
+                   bzero(filename,100);
+                   break;
+          
+          case LIST_FILES:
+                   system("ls > files.txt")
+                   size = send_fileinfo(sock,remote,"files.txt");
+                   if(send_file(sock,remote,filename,size))
+                   {
+                   printf("sendig the list of files\n");
+                   nbytes = recvfrom(sock,ack,10*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int*)&remote_length);
+                   if(nbytes != 0)
+                   check_ack(sock,remote,ack);
+                   break;
+         
+          case DELETE:
+                  recvfrom(sock,filename,100*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int *)&remote_length);
+                  printf("client wants to delete %s\n",filename);
+                  char *delete_command =  malloc(105*sizeof(char));
+                  strcpy(delete_command,"rm -f ");
+                  strncpy(delete_command+5,filename,strlen(filename));
+                  printf("command executing is %s\n",delete_command);
+                  if(system(delete_command) == -1)
+                  printf("error in deletind file\n");
+                  else
+                  {
+                  printf("deleted successfully\n");
+                  sendto(sock,"ACK",strlen("ACK"),0,(struct sockaddr *)&remote,(unsigned int*)&remote_length);
+                  }
+                  break;
+                  
+         case EXIT:
+                  int return_value;
+                  return_value = close(sock);
+                  if(return_value == 0)
+                  printf("connection closed\n");                   
+         default:
+                 
+                  break;
+                 
+                           
          }
                     
       }  
-        close(sock);
 }
 
 
