@@ -72,8 +72,12 @@ int recv_file(int sock,struct sockaddr_in remote,char *file_name,size_t size)
       int nmemb = 0;
       int nbytes = 0;
       size_t data_read = 0; 
-      char *buffer = malloc(packet_size*(sizeof(char)));
-      bzero(buffer,packet_size*(sizeof(char)));
+      int result = 0;
+      char *buffer = NULL;
+      char *buffer1 = malloc(packet_size*(sizeof(char)));
+      char *buffer2 = malloc(packet_size*(sizeof(char)));
+      bzero(buffer1,packet_size*(sizeof(char)));
+      bzero(buffer2,packet_size*(sizeof(char)));
       //nmemb = size/packet_size;
       //if(size%packet_size>0)
       //nmemb++;
@@ -82,7 +86,21 @@ int recv_file(int sock,struct sockaddr_in remote,char *file_name,size_t size)
       //recieve the data from server
       while(data_read<size)
       {
-      nbytes = recvfrom(sock,buffer,packet_size*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int*)&remote_length);
+      recvfrom(sock,buffer1,packet_size*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int*)&remote_length);
+      recvfrom(sock,buffer2,packet_size*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int *)&remote_length);
+      result = strcmp(buffer1,buffer2);
+      if(result >= 0)
+      {
+      printf("both packets are recieved\n");
+      buffer = buffer1;
+      bzero(buffer2,packet_size*(sizeof(char)));
+      }
+      else if(result < 0)
+      {
+      buffer = buffer2;
+      bzero(buffer1,packet_size*(sizeof(char)));
+      }
+      printf("%s",buffer);
       //write recieved data to the file 
       if(fp == NULL)
       printf("file can't be opened\n");
