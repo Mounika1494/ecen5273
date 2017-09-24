@@ -78,8 +78,24 @@ uint8_t user_command()
      }
      printf("option selected is %d\n",op_selected);
      return op_selected;
+}
+
+char *decryption(char *data,int packet_size)
+{
+      char* key = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      int j = 0;
+      for(int i = 0;i<packet_size;i++)
+      {
+
+        *(data + i) = *(data+i) ^ *(key+j);
+         j++;
+         if(j==25)
+         j=0;
+      }
+      return data;
 
 }
+
 
 int recv_file(int sock,struct sockaddr_in remote,char *file_name,size_t size)
 {
@@ -87,7 +103,7 @@ int recv_file(int sock,struct sockaddr_in remote,char *file_name,size_t size)
       remote_length = sizeof(remote);
       FILE *fp = NULL;
       int packet_size = 1000;
-      int nmemb = 0;
+      char* diff_packets = NULL;
       int nbytes = 0;
       size_t data_read = 0; 
       int result = 0;
@@ -103,7 +119,13 @@ int recv_file(int sock,struct sockaddr_in remote,char *file_name,size_t size)
       {
       recvfrom(sock,buffer1,packet_size*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int*)&remote_length);
       recvfrom(sock,buffer2,packet_size*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int *)&remote_length);
+      //check if the buffer2 and buffer1 are substrings
+      //diff_packets = strstr(buffer1,buffer2);
+      //if(diff_packets!=NULL)
+      //{
+      //check for the size of buffers
       result = strcmp(buffer1,buffer2);
+      printf("Both packets are same\n");
       if(result >= 0)
       {
       printf("both packets are recieved\n");
@@ -115,12 +137,26 @@ int recv_file(int sock,struct sockaddr_in remote,char *file_name,size_t size)
       buffer = buffer2;
       bzero(buffer1,packet_size*(sizeof(char)));
       }
+      decryption(buffer,packet_size);
       memcpy(file+data_read,buffer,packet_size);
       bzero(buffer,packet_size*sizeof(char));
       data_read=data_read+packet_size;
       printf("bytes recieved is %d\n",data_read);
+      //}
+      //2 strings are completely different so 2 buffers are stored
+      /*else if(diff_packets == NULL && strlen(buffer1)!=0 && strlen(buffer2)!=0)
+      {
+      printf("packets are different\n");
+      decryption(buffer1,packet_size);
+      memcpy(file+data_read,buffer1,packet_size);
+      bzero(buffer1,packet_size*sizeof(char));
+      data_read = data_read + packet_size;
+      decryption(buffer2,packet_size);
+      memcpy(file+data_read,buffer2,packet_size);
+      bzero(buffer2,packet_size*sizeof(char));
+      data_read = data_read + packet_size;
+      }*/
       }
-      printf("size of file is %d\n",strlen(file));
       if(fp == NULL)
       return 0;
       if(fwrite(file,1,size,fp)<0)
@@ -168,7 +204,21 @@ size_t send_fileinfo(int sock,struct sockaddr_in remote,char *filename)
       sendto(sock,file_info,strlen(file_info),0,(struct sockaddr *)&remote,sizeof(remote));
       return size;
 }
-
+char *encryption(char *data,int packet_size)
+{
+      char* key = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      int j = 0;
+      for(int i = 0;i<packet_size;i++)
+      {
+        
+        *(data + i) = *(data+i) ^ *(key+j);
+         j++;
+         if(j==25)
+         j=0;
+      }
+      return data;
+      
+}
 int send_file(int sock,struct sockaddr_in remote,char *filename,size_t size)
 {
       FILE* filein = NULL;
@@ -177,6 +227,7 @@ int send_file(int sock,struct sockaddr_in remote,char *filename,size_t size)
       int packet_size = 1000;
       int nmemb = 0;
       char *data = malloc(packet_size * sizeof(char));
+      char *encrypted_data = malloc(packet_size * sizeof(char));
       if(data == NULL)
       {
       printf("could'nt allocate memory\n");
@@ -190,10 +241,11 @@ int send_file(int sock,struct sockaddr_in remote,char *filename,size_t size)
       while(fread(data,1,packet_size,filein))
       {
       int i=0;
+      encrypted_data = encryption(data,packet_size);
       //printf("number of bytes read is %d\n",read_bytes);
       while(i<2)
       {
-      nbytes = sendto(sock,data,packet_size*sizeof(char),0,(struct sockaddr *)&remote,sizeof(remote));
+      nbytes = sendto(sock,encrypted_data,packet_size*sizeof(char),0,(struct sockaddr *)&remote,sizeof(remote));
       if(nbytes == packet_size)
       i++;
       }

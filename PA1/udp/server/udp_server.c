@@ -97,6 +97,39 @@ size_t send_fileinfo(int sock,struct sockaddr_in remote,char *filename)
   
 }
 
+char *decryption(char *data,int packet_size)
+{
+      char* key = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      int j = 0;
+      for(int i = 0;i<packet_size;i++)
+      {
+
+        *(data + i) = *(data+i) ^ *(key+j);
+         j++;
+         if(j==25)
+         j=0;
+      }
+      return data;
+
+}
+
+char *encryption(char *data,int packet_size)
+{
+      char* key = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      int j = 0;
+      for(int i = 0;i<packet_size;i++)
+      {
+
+        *(data + i) = *(data+i) ^ *(key+j);
+         j++;
+         if(j==25)
+         j=0;
+      }
+      return data;
+
+}
+
+
 int send_file(int sock,struct sockaddr_in remote,char *filename,size_t size)
 {
       FILE* filein = NULL;
@@ -113,11 +146,13 @@ int send_file(int sock,struct sockaddr_in remote,char *filename,size_t size)
       if(filein == NULL)
       {
       printf("file can't be opened\n");
+      return 0;
       }
       
       while(fread(data,1,packet_size,filein))
       {
       int i=0;
+      encryption(data,packet_size);
       //printf("number of bytes read is %d\n",read_bytes);
       while(i<2)
       {
@@ -127,7 +162,7 @@ int send_file(int sock,struct sockaddr_in remote,char *filename,size_t size)
       }
       read_bytes=read_bytes+nbytes;
       printf("number of bytes sent is %d\n",read_bytes);
-      for(int i=0;i<100000;i++);
+      for(int i=0;i<150000;i++);
       }
       fclose(filein);
       return 1;
@@ -169,6 +204,7 @@ int recv_file(int sock,struct sockaddr_in remote,char *file_name,size_t size)
       buffer = buffer2;
       bzero(buffer1,packet_size*(sizeof(char)));
       }
+      decryption(buffer,packet_size);
       memcpy(file+data_read,buffer,packet_size);
       bzero(buffer,packet_size*sizeof(char));
       data_read=data_read+packet_size;
