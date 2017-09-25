@@ -371,12 +371,16 @@ int main (int argc, char * argv[] )
                   strncpy(delete_command+6,filename,strlen(filename));
                   printf("command executing is %s\n",delete_command);
                   if(system(delete_command) == -1)
-                  printf("error in deletind file\n");
+                  {
+                  printf("file not present\n");
+                  printf("Do ls to see the list of files\n");
+                  }
                   else
                   {
                   printf("deleted successfully\n");
                   sendto(sock,"ACK",strlen("ACK"),0,(struct sockaddr *)&remote,sizeof(remote));
                   }
+                  bzero(filename,100);
                   break;
                   
          case EXIT:
@@ -393,7 +397,8 @@ int main (int argc, char * argv[] )
           }
       
          }// bzero(command,10);              
-      }  
+      }
+   close(sock);  
 }
 
 

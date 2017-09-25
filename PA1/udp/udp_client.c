@@ -196,6 +196,7 @@ size_t send_fileinfo(int sock,struct sockaddr_in remote,char *filename)
       if(fp == NULL)
       {
       printf("file can't be opened\n");
+      return 0;
       }
       //get its size
       fseek(fp, 0, SEEK_END);
@@ -244,16 +245,18 @@ int send_file(int sock,struct sockaddr_in remote,char *filename,size_t size)
       if(filein == NULL)
       {
       printf("file can't be opened\n");
+      return 0;
       }
       bzero(&(packet.data),packet_size);
       while(fread(&(packet.data),1,packet_size,filein))
       {
       int i=0;
       packet.index = packet_index;
-      printf("%s\n",&(packet.data));
+     // printf("%s\n",&(packet.data));
+      encryption(&packet);
       while(i<2)
       {
-      encryption(&packet);
+      //encryption(&packet);
       sendto(sock,&packet,sizeof(packet),0,(struct sockaddr *)&remote,sizeof(remote));
       i++;
       }
@@ -276,6 +279,7 @@ int main (int argc, char * argv[])
 	//char buffer[MAXBUFSIZE];
         size_t size = 0;
         char *filename = malloc(25*(sizeof(char)));
+        char *files_list =  malloc(25*(sizeof(char)));
 	struct sockaddr_in remote;              //"Internet socket address structure"
         unsigned int remote_length;
         struct sockaddr_in from_addr;
@@ -303,8 +307,8 @@ int main (int argc, char * argv[])
 	}
         remote_length = sizeof(remote);
         printf("connected to the server\n");
-        //while(1)
-        //{
+        while(1)
+        {
         //get userinput
          option = user_command();
          while(!option)
@@ -334,6 +338,11 @@ int main (int argc, char * argv[])
                      scanf("%s",filename);
                      sendto(sock,filename,strlen(filename),0,(struct sockaddr *)&remote,sizeof(remote));
                      size = send_fileinfo(sock,remote,filename);
+                     if(size == 0)
+                     {
+                     printf("check the file name\n");
+                     break;
+                     }
                      if(send_file(sock,remote,filename,size))
                      {
                      printf("sent the file\n");
@@ -343,30 +352,8 @@ int main (int argc, char * argv[])
                      bzero(filename,100);
                      bzero(ack,10);
                      }
-                     break;
-           
-           case LIST_FILES:
- 
-                     filename = "files.txt";
-                     FILE *list = NULL;
-                     char *list_buffer =malloc(60*sizeof(char));
-                     sendto(sock,"ls",strlen("ls"),0,(struct sockaddr *)&remote,sizeof(remote));
-                     size = recv_fileinfo(sock,remote);
-                     if(recv_file(sock,remote,filename,size))
-                     {
-                     sendto(sock,"ACK",strlen("ACK"),0,(struct sockaddr *)&remote,sizeof(remote));
-                     printf("successfully recieved the file\n");
-                     list = fopen(filename,"r");
-                     while(fread(list_buffer,1,size,list))
-                     {
-                     printf("List of files in buffer are ...\n");
-                     printf("******************************************\n");
-                     printf("%s",list_buffer);
-                     printf("******************************************\n");
-                     }
-                     }
-                     //bzero(filename,9);
-                     //bzero(list_buffer,60);
+                     else
+                     printf("check the file name\n");
                      break;
            
            case DELETE:
@@ -380,12 +367,40 @@ int main (int argc, char * argv[])
                     bzero(filename,100);
                     bzero(ack,10);
                     break;
-           
+            
+         case LIST_FILES:
+
+                     files_list = "files.txt";
+                     FILE *list = NULL;
+                     char *list_buffer =malloc(60*sizeof(char));
+                     sendto(sock,"ls",strlen("ls"),0,(struct sockaddr *)&remote,sizeof(remote));
+                     size = recv_fileinfo(sock,remote);
+                     if(recv_file(sock,remote,files_list,size))
+                     {
+                     sendto(sock,"ACK",strlen("ACK"),0,(struct sockaddr *)&remote,sizeof(remote));
+                     printf("successfully recieved the file\n");
+                     list = fopen(files_list,"r");
+                     while(fread(list_buffer,1,size,list))
+                     {
+                     printf("List of files in buffer are ...\n");
+                     printf("******************************************\n");
+                     printf("%s",list_buffer);
+                     printf("******************************************\n");
+                     }
+                     }
+                     fclose(list);
+                     //bzero(list_buffer,60);
+                     break;
+
            case EXIT:
                    sendto(sock,"exit",strlen("exit"),0,(struct sockaddr *)&remote,sizeof(remote));
+                   printf("closing along server\n");
+                   close(sock);
+                   return 0;
                    break;
                    
         }
+     }
    close(sock);
 }
 
