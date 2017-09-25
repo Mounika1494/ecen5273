@@ -329,6 +329,28 @@ int recv_file(int sock,struct sockaddr_in remote,char *file_name,size_t size)
       }
       else if(packet1.index=packet2.index+1)
       {
+      if(packet1.index<packet_index)
+      {
+      printf("packet repeated\n");
+      if(fwrite(&(packet2.data),1,packet_size,fp)<0)
+      {
+      printf("error writing file\n");
+      return 0;
+      }
+      packet_index++;
+      }
+      else if(packet2.index < packet_index)
+      {
+      printf("packet repeated\n");
+      if(fwrite(&(packet2.data),1,packet_size,fp)<0)
+      {
+      printf("error writing file\n");
+      return 0;
+      }
+      packet_index++;
+      }
+      else
+      {
       if(fwrite(&(packet1.data),1,packet_size,fp)<0)
       {
       printf("error writing file\n");
@@ -341,6 +363,7 @@ int recv_file(int sock,struct sockaddr_in remote,char *file_name,size_t size)
       return 0;
       }
       packet_index++;
+      }
       }
       bzero(&(packet2.data),packet_size);
       bzero(&(packet1.data),packet_size);
