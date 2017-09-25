@@ -17,7 +17,7 @@
 
 /* You will have to modify the program below */
 
-#define MAXBUFSIZE 30000
+/***********commands******/
 typedef enum 
 {
   GET = 1,
@@ -27,12 +27,20 @@ typedef enum
   EXIT = 5
 }commands;
 
+/****packet structure****/
 typedef struct p1 {
       int index;
       uint8_t data[1024+1];
 }packet_t;
 
-
+/**********************************************
+*@Description: int to ascii
+*
+*@param: number,string to store
+*
+*@return converted string - success
+*                  NULL - fail
+**************************************************/
 char* itoa(int num,char *str)
 {
    if(str == NULL)
@@ -41,18 +49,35 @@ char* itoa(int num,char *str)
    return str;
 }
 
+/**********************************************************
+*@Description: check if ack is recieved
+*
+*@param:int socket fd,
+*        struct remote ip
+*        char    filename - name of file to be transfered
+*@return  1 -Success
+*         0 - Fail
+**********************************************************/
 uint8_t check_ack(int sock,struct sockaddr_in remote,char *ack)
 {
    if(!(strcmp(ack,"ACK")))
    {
    printf("ack is recieved\n");
+   return 1;
    }
-
+ return 0;
 }
+
+/****************************************************************
+*@Description: Check the user input if it is valid
+*
+*@param NULL
+*
+*@return enum command
+***************************************************************/
 uint8_t command_decode(char *command)
 {
       uint8_t cmd_recieved = 0;
-      printf("command is %s",command);
       if(!(strcmp(command,"get")))
       {
       printf("client wants to get a file\n");
@@ -81,6 +106,17 @@ uint8_t command_decode(char *command)
     return cmd_recieved;
 }
 
+/*********************************************************************
+*@Description: Send the size of file
+*
+*@param
+*      int sock
+*      struct remote ip
+*      char*  filename - name of file 
+*@return
+*      size success
+*      0    failure
+**********************************************************************/
 size_t send_fileinfo(int sock,struct sockaddr_in remote,char *filename)
 {
       FILE* fp = NULL;
@@ -90,6 +126,7 @@ size_t send_fileinfo(int sock,struct sockaddr_in remote,char *filename)
       if(fp == NULL)
       {
       printf("file can't be opened\n");
+      sendto(sock,"0",1,0,(struct sockaddr *)&remote,sizeof(remote));
       return 0;
       } 
       //get its size
@@ -104,6 +141,13 @@ size_t send_fileinfo(int sock,struct sockaddr_in remote,char *filename)
   
 }
 
+/********************************************
+*@Description: Decryption of packet
+*
+*@param packet to be decrypted
+*
+*@return NULL
+*************************************************/
 void decryption(packet_t* packet)
 {
       char* key = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -119,6 +163,14 @@ void decryption(packet_t* packet)
       }
 }
 
+
+/**************************************************************
+*@DescriptionEncryption of packet  xor is the algorithm
+*
+*@param packer
+*
+*@return NULL
+************************************************************/
 void encryption(packet_t* packet)
 {
       char* key = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
@@ -134,6 +186,14 @@ void encryption(packet_t* packet)
       }
 }
 
+/********************************************************************************
+*@Description: Compares 2 strings and if they are either substrings or equal strings
+*
+*@param strings to be compared
+*
+*@return 1 - success
+         0 - Failure
+*************************************************************************************/
 int my_strcmp(char *str1,char *str2,int size)
 {
      int i=0;
@@ -152,6 +212,21 @@ printf("number of char compared %d\n",i);
 return 1;
 }
 
+/******************************************************************************
+*@Description sends the packet to the remote and delay as the rx write will be slow
+*             For reliability each packet is sent twice an ack can also be implemented
+*             But UDP doesn't work like that and efficiency will be high in this 
+*             implementation
+*
+*@param  
+*        int socket fd,
+*        struct remote ip
+*        char    filename - name of file to be transfered
+* unsigned long  size
+*@return
+*         error  0
+*         success 1
+****************************************************************************/
 int send_file(int sock,struct sockaddr_in remote,char *filename,size_t size)
 {
       FILE* filein = NULL;
@@ -178,11 +253,9 @@ int send_file(int sock,struct sockaddr_in remote,char *filename,size_t size)
       {
       int i=0;
       packet.index = packet_index;
-     // printf("%s\n",&(packet.data));
       encryption(&packet);
       while(i<2)
       {
-      //encryption(&packet);
       sendto(sock,&packet,sizeof(packet),0,(struct sockaddr *)&remote,sizeof(remote));
       i++;
       }
@@ -195,7 +268,17 @@ int send_file(int sock,struct sockaddr_in remote,char *filename,size_t size)
 
 }
 
-
+/******************************************************************************
+@Description: Recieve the file from server.For reliability 2 packets are transfered 
+              2 packets recieved are compared.If equal then one is discarded.If different packets are              recieved based on the sequence number decide to buffer it or discard it
+*
+*
+*@param  int socket fd,
+*        struct remote ip
+*        char    filename - name of file to be transfered
+*@return 1 success
+*        0 fail
+********************************************************************************/
 int recv_file(int sock,struct sockaddr_in remote,char *file_name,size_t size)
 {
       unsigned int remote_length = 0;
@@ -224,7 +307,6 @@ int recv_file(int sock,struct sockaddr_in remote,char *file_name,size_t size)
       decryption(&packet1);
       decryption(&packet2);
       printf("packet index is %d,%d\n",packet1.index,packet2.index);
-      printf("string size is %d,%d\n",strlen(&packet1.data),strlen(&packet2.data));
       if(packet_count == 1)
       {
       if(fwrite(&(packet1.data),1,size,fp)<0)
@@ -268,6 +350,18 @@ int recv_file(int sock,struct sockaddr_in remote,char *file_name,size_t size)
       return 1;
 }
 
+
+/*********************************************************************
+*@Description: Recieve the size of file from Server
+*
+*@param
+*      int sock
+*      struct remote ip
+*      char*  filename - name of file 
+*@return
+*      size success
+*      0    failure
+**********************************************************************/
 size_t recv_fileinfo(int sock,struct sockaddr_in remote)
 {
        int nbytes =0;
@@ -277,7 +371,6 @@ size_t recv_fileinfo(int sock,struct sockaddr_in remote)
        bzero(file_info,100*sizeof(char));
        remote_length = sizeof(remote);
        nbytes = recvfrom(sock,file_info,100*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int *)&remote_length);
-       printf("file_info buffer has %s\n",file_info);
        size = atoi(file_info);
        printf("size is %lu\n",size);
        return size;
@@ -296,7 +389,6 @@ int main (int argc, char * argv[] )
 	struct sockaddr_in sin, remote;     //"Internet socket address structure"
 	unsigned int remote_length;         //length of the sockaddr_in structure
 	int nbytes;                        //number of bytes we receive in our message
-	char buffer[MAXBUFSIZE];             //a buffer to store our received message
 	if (argc != 2)
 	{
 		printf ("USAGE:  <port>\n");
@@ -326,7 +418,6 @@ int main (int argc, char * argv[] )
         nbytes = recvfrom(sock,command,10*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int *)&remote_length);
         if(nbytes != 0)
         {
-        printf("client says %s\n",command);
         option = command_decode(command);
         bzero(command,10);
         switch(option)
@@ -337,27 +428,34 @@ int main (int argc, char * argv[] )
                     size = send_fileinfo(sock,remote,filename);
                     if(size == 0)
                     {
-                    printf("do ls to see the names of files\n");
-                    break;
+                     bzero(filename,100);
+                     break;
                     }
                     if(send_file(sock,remote,filename,size))
                     {
                     printf("sent the file\n");
-                    nbytes = recvfrom(sock,ack,10*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int*)&remote_length);
-                    if(nbytes != 0)
-                    check_ack(sock,remote,ack);
-                    bzero(filename,100);
+                    recvfrom(sock,ack,10*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int*)&remote_length);
+                    if(!check_ack(sock,remote,ack))
+                    printf("didn't complete transfer\n");
                     }
+                    bzero(filename,100);
                     break;
           case PUT:
                    recvfrom(sock,filename,100*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int *)&remote_length);
                    printf("filename is %s\n",filename);
                    size = recv_fileinfo(sock,remote);
+                   if(size==0)
+                   {
+                   bzero(filename,100);
+                   break;
+                   }
                    if(recv_file(sock,remote,filename,size))
                    {
                    printf("recieved the file\n");
                    sendto(sock,"ACK",strlen("ACK"),0,(struct sockaddr *)&remote,sizeof(remote));
                    }
+                   else
+                   sendto(sock,"0",1,0,(struct sockaddr *)&remote,sizeof(remote));
                    bzero(filename,100);
                    break;
           
@@ -372,10 +470,12 @@ int main (int argc, char * argv[] )
                    if(send_file(sock,remote,"files.txt",size))
                    {
                    printf("sending the list of files\n");
-                   nbytes = recvfrom(sock,ack,10*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int*)&remote_length);
-                   if(nbytes != 0)
-                   check_ack(sock,remote,ack);
+                   recvfrom(sock,ack,10*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int*)&remote_length);
+                   if(!check_ack(sock,remote,ack))
+                   printf("could'nt recieve list of files\n");
                    }
+                   else
+                   printf("couldn't send list of files\n");
                    break;
          
           case DELETE:
@@ -389,6 +489,7 @@ int main (int argc, char * argv[] )
                   {
                   printf("file not present\n");
                   printf("Do ls to see the list of files\n");
+                  sendto(sock,"0",1,0,(struct sockaddr *)&remote,sizeof(remote));
                   }
                   else
                   {
@@ -411,7 +512,7 @@ int main (int argc, char * argv[] )
                            
           }
       
-         }// bzero(command,10);              
+         }             
       }
    close(sock);  
 }
