@@ -90,6 +90,7 @@ size_t send_fileinfo(int sock,struct sockaddr_in remote,char *filename)
       if(fp == NULL)
       {
       printf("file can't be opened\n");
+      return 0;
       } 
       //get its size
       fseek(fp, 0, SEEK_END);
@@ -156,9 +157,12 @@ int send_file(int sock,struct sockaddr_in remote,char *filename,size_t size)
       FILE* filein = NULL;
       int nbytes = 0;
       int read_bytes = 0;
-      int packet_size = 1000;
-      int nmemb = 0;
+      int packet_size = 1024;
+      int packet_index  = 1;
       char *data = malloc(packet_size * sizeof(char));
+      char *buffer = malloc(packet_size * sizeof(char));
+      char *encrypted_data = malloc(packet_size * sizeof(char));
+      packet_t packet;
       if(data == NULL)
       {
       printf("could'nt allocate memory\n");
@@ -169,27 +173,28 @@ int send_file(int sock,struct sockaddr_in remote,char *filename,size_t size)
       printf("file can't be opened\n");
       return 0;
       }
-      
-      while(fread(data,1,packet_size,filein))
+      bzero(&(packet.data),packet_size);
+      while(fread(&(packet.data),1,packet_size,filein))
       {
       int i=0;
-      //encryption(data);
-      //printf("number of bytes read is %d\n",read_bytes);
+      packet.index = packet_index;
+     // printf("%s\n",&(packet.data));
+      encryption(&packet);
       while(i<2)
       {
-      nbytes = sendto(sock,data,packet_size*sizeof(char),0,(struct sockaddr *)&remote,sizeof(remote));
-      if(nbytes == packet_size)
+      //encryption(&packet);
+      sendto(sock,&packet,sizeof(packet),0,(struct sockaddr *)&remote,sizeof(remote));
       i++;
       }
-      read_bytes=read_bytes+nbytes;
-      printf("number of bytes sent is %d\n",read_bytes);
-      bzero(data,packet_size);
-      for(int i=0;i<150000;i++);
+      for(int i=0;i<100000;i++);
+      packet_index++;
+      bzero(&(packet.data),packet_size);
       }
       fclose(filein);
       return 1;
 
 }
+
 
 int recv_file(int sock,struct sockaddr_in remote,char *file_name,size_t size)
 {
@@ -330,6 +335,11 @@ int main (int argc, char * argv[] )
                     recvfrom(sock,filename,100*sizeof(char),0,(struct sockaddr *)&remote,(unsigned int *)&remote_length);
                     printf("file name is %s\n",filename);
                     size = send_fileinfo(sock,remote,filename);
+                    if(size == 0)
+                    {
+                    printf("do ls to see the names of files\n");
+                    break;
+                    }
                     if(send_file(sock,remote,filename,size))
                     {
                     printf("sent the file\n");
@@ -354,6 +364,11 @@ int main (int argc, char * argv[] )
           case LIST_FILES:
                    system("ls > files.txt");
                    size = send_fileinfo(sock,remote,"files.txt");
+                   if(size == 0)
+                   {
+                   printf("You are the first to use empty server\n");
+                   break;
+                   }
                    if(send_file(sock,remote,"files.txt",size))
                    {
                    printf("sending the list of files\n");
