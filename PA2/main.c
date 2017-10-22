@@ -9,6 +9,9 @@
 #include<netdb.h>
 #include<signal.h>
 #include<fcntl.h>
+#include <time.h>
+#include <sys/time.h>
+#include <signal.h>
 
 #define CONNMAX 1000
 #define BYTES 1024
@@ -16,7 +19,21 @@
 int listenfd, clients[CONNMAX];
 void startServer(char *);
 void respond(int,char *);
+void timeout_handler(int);
 
+int client_num=0;
+
+void timeout_handler(int sig)
+{
+     printf("Socket Timeout\n");
+     printf("closing the socket %d\n",client_num); 
+     shutdown (clients[client_num], SHUT_RDWR);         
+     close(clients[client_num]);
+     clients[client_num]=-1;
+     exit(0);    
+}
+
+//get size of the file
 int get_size(int file_desc)
 {
   struct stat file_stat;
@@ -28,6 +45,7 @@ int get_size(int file_desc)
   return (int)file_stat.st_size;
 }
 
+//reverse the string
 char* strrev(char *str)
 {
     char *p1,*p2;
@@ -42,6 +60,7 @@ char* strrev(char *str)
   return str;
 }
 
+//get the information required from ws.conf file
 char* get_info(char *search_string)
 {
  int fd;
@@ -62,6 +81,7 @@ char* get_info(char *search_string)
  return token;
 }
 
+//convert integer to asci
 char* itoa(int num,char *str)
 {
    if(str == NULL)
@@ -70,6 +90,7 @@ char* itoa(int num,char *str)
    return str;
 }
 
+//send a tring to client
 void send_client(int socket_desc,char *msg)
 {
    printf("*******server response************\n");
@@ -89,29 +110,32 @@ int main(int argc, char* argv[])
         char* ROOT;
 	char* PORT = malloc(6);
 	ROOT = malloc(30);
-	int slot=0;
+        int slot = 0;
         printf("Trying to connect....\n");
         strcpy(ROOT,get_info("DocumentRoot"));
         strcpy(PORT,get_info("Listen"));
 	printf("Server started at port no.%s with root directory is %s done",PORT,ROOT); 
-	// Setting all elements to -1: signifies there is no client connected
+	// initialise all elements to -1: no client is der
 	int i;
 	for (i=0; i<CONNMAX; i++)
 		clients[i]=-1;
+        signal(SIGALRM, timeout_handler);
+        // Start server
 	startServer(PORT);
-
-	// ACCEPT connections
+        addrlen = sizeof(clientaddr);
+	// accept any connections from client
 	while (1)
 	{
-		addrlen = sizeof(clientaddr);
+		
+                printf("this is slot %d request\n",slot);
 		clients[slot] = accept (listenfd, (struct sockaddr *) &clientaddr, &addrlen);
-
 		if (clients[slot]<0)
 			printf ("accept() error");
 		else
 		{
 			if ( fork()==0 )
 			{
+                                
 				respond(slot,ROOT);
 				exit(0);
 			}
@@ -161,6 +185,7 @@ void startServer(char *port)
 	}
 }
 
+//To get file format from ws config
 char* get_file_format(char* file_info,char *file_type)
 {
    char filename[] = "ws.conf";
@@ -183,10 +208,13 @@ char* get_file_format(char* file_info,char *file_type)
    return token;
 }
 
+
+
 //client connection
 void respond(int n,char* ROOT)
-{
-	char mesg[99999], *reqline[3], data_to_send[BYTES], path[99999], header[99999],post_mesg[99999];
+{       
+	char mesg[10000], *reqline[3], data_to_send[BYTES];
+        char path[10000], header[10000],post_mesg[10000],persis_conn[10000];
 	int rcvd, fd, bytes_read;
         char size[7];
         char *default_page = malloc(15);
@@ -196,11 +224,16 @@ void respond(int n,char* ROOT)
         char *file_type = malloc(20);
         char *content_type = malloc(10);
         char *error_message = malloc(3000);
+        char *time_out;
+        int pip_no = 0;
         char *http = "HTTP/1.1 ";
-	memset( (void*)mesg, (int)'\0', 99999 );
-
-	rcvd=recv(clients[n], mesg, 99999, 0);
-
+        while(1)
+        {
+        pip_no++;
+	memset( (void*)mesg, (int)'\0', 10000 );
+	rcvd=recv(clients[n], mesg, 10000, 0);
+        client_num = n;
+        
 	if (rcvd<0)    // receive error
 		fprintf(stderr,("recv() error\n"));
 	else if (rcvd==0)    // receive socket closed
@@ -209,6 +242,8 @@ void respond(int n,char* ROOT)
 	{
 		printf("%s", mesg);
                 strcpy(post_mesg,mesg);
+                strcpy(persis_conn,mesg);
+        
 		reqline[0] = strtok (mesg, " \t\n");
 		if ( strncmp(reqline[0], "GET\0", 4)==0 )
 		{
@@ -222,7 +257,6 @@ void respond(int n,char* ROOT)
                         if(strncmp( reqline[2], "HTTP/1.1", 8) == 0 )
 			{
                            http = "HTTP/1.1 ";
-                           
                         }
                         if( strncmp( reqline[2], "HTTP/1.0", 8) != 0 && strncmp( reqline[2], "HTTP/1.1", 8) != 0 )
                         {
@@ -303,7 +337,7 @@ void respond(int n,char* ROOT)
                                 }
 			}
 		}
-                else if ( strncmp(reqline[0], "HEAD\0", 4)==0 )
+                else if ( (strncmp(reqline[0], "POST\0", 4)!=0 ) && (strncmp(reqline[0],"GET\0",4)!=0) )
                 {
                               strcpy(header,http);
                               strcat(header,"501 Not Implemented\n");
@@ -344,10 +378,27 @@ void respond(int n,char* ROOT)
                               send_client(clients[n],error_message);
 
                 }
+                if(strstr(persis_conn,"Connection")!= NULL)
+                {
+                printf("keep alive is der\n");
+                time_out = get_info("keep-Alivetime");
+                printf("time_out interval is %d\n",atoi(time_out));
+                printf("timer started\n");
+                alarm(atoi(time_out));
+                }
+                else
+                {
+                //Closing SOCKET
+	        shutdown (clients[n], SHUT_RDWR);         
+	        close(clients[n]);
+                clients[n]=-1;
+                exit(0);
+                }
 	}
-
+   }    
 	//Closing SOCKET
-	shutdown (clients[n], SHUT_RDWR);         //All further send and recieve operations are DISABLED...
+	shutdown (clients[n], SHUT_RDWR);         
 	close(clients[n]);
 	clients[n]=-1;
+        exit(0);
 }
