@@ -1,5 +1,5 @@
 body {
-	background: #000000 url(images/background.png) repeat-x;
+	background: #000000 repeat-x;
 	font-family: "Helvetica Neue",Helvetica,Arial,sans-serif
 }
 #container {
@@ -21,16 +21,16 @@ body {
 #main_content {
 	margin: 0 auto;
 	width: 100%;
-	background: #FFFFFF url('images/background_content.gif');
+	background: #FFFFFF;
 	background-repeat: repeat-y
 } 
 #main_content_top {
 	height: 30px;
-	background: #292929 url('images/background_top.gif');
+	background: #292929;
 } 
 #main_content_bottom {
 	height: 30px;
-	background: #FFFFFF url('images/background_bottom.gif');
+	background: #FFFFFF;
 }
 #footer {
 	text-align: center;

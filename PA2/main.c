@@ -13,9 +13,7 @@
 #define CONNMAX 1000
 #define BYTES 1024
 
-
 int listenfd, clients[CONNMAX];
-void error(char *);
 void startServer(char *);
 void respond(int,char *);
 
@@ -46,7 +44,6 @@ char* strrev(char *str)
 
 char* get_info(char *search_string)
 {
- printf("\nIn get info\n");
  int fd;
  char filename[] = "ws.conf";
  char buffer[4000];
@@ -75,6 +72,7 @@ char* itoa(int num,char *str)
 
 void send_client(int socket_desc,char *msg)
 {
+   printf("*******server response************\n");
    printf("%s\n",msg);
    int length = strlen(msg);
    if(send(socket_desc,msg,length,0) == -1)
@@ -83,14 +81,16 @@ void send_client(int socket_desc,char *msg)
    }
 }
 
+
 int main(int argc, char* argv[])
 {
 	struct sockaddr_in clientaddr;
 	socklen_t addrlen;
-        char *ROOT;
+        char* ROOT;
 	char* PORT = malloc(6);
 	ROOT = malloc(30);
 	int slot=0;
+        printf("Trying to connect....\n");
         strcpy(ROOT,get_info("DocumentRoot"));
         strcpy(PORT,get_info("Listen"));
 	printf("Server started at port no.%s with root directory is %s done",PORT,ROOT); 
@@ -107,7 +107,7 @@ int main(int argc, char* argv[])
 		clients[slot] = accept (listenfd, (struct sockaddr *) &clientaddr, &addrlen);
 
 		if (clients[slot]<0)
-			error ("accept() error");
+			printf ("accept() error");
 		else
 		{
 			if ( fork()==0 )
@@ -170,7 +170,6 @@ char* get_file_format(char* file_info,char *file_type)
    char *search,*parse;
    int fd;
    fd = open("ws.conf",O_RDONLY);
-   printf("file type to be searched is %s\n",file_type);
    if(fd == -1)
      printf("unable to open configuration file\n");
    read(fd,buffer,get_size(fd));
@@ -187,7 +186,7 @@ char* get_file_format(char* file_info,char *file_type)
 //client connection
 void respond(int n,char* ROOT)
 {
-	char mesg[99999], *reqline[3], data_to_send[BYTES], path[99999], header[99999];
+	char mesg[99999], *reqline[3], data_to_send[BYTES], path[99999], header[99999],post_mesg[99999];
 	int rcvd, fd, bytes_read;
         char size[7];
         char *default_page = malloc(15);
@@ -196,6 +195,8 @@ void respond(int n,char* ROOT)
         char *token = malloc(20);
         char *file_type = malloc(20);
         char *content_type = malloc(10);
+        char *error_message = malloc(3000);
+        char *http = "HTTP/1.1 ";
 	memset( (void*)mesg, (int)'\0', 99999 );
 
 	rcvd=recv(clients[n], mesg, 99999, 0);
@@ -207,15 +208,43 @@ void respond(int n,char* ROOT)
 	else    // message received
 	{
 		printf("%s", mesg);
+                strcpy(post_mesg,mesg);
 		reqline[0] = strtok (mesg, " \t\n");
 		if ( strncmp(reqline[0], "GET\0", 4)==0 )
 		{
 			reqline[1] = strtok (NULL, " \t");
 			reqline[2] = strtok (NULL, " \t\n");
-			if ( strncmp( reqline[2], "HTTP/1.0", 8)!=0 && strncmp( reqline[2], "HTTP/1.1", 8)!=0 )
+			if ( strncmp( reqline[2], "HTTP/1.0", 8) == 0)
+                        {
+                          http = "HTTP/1.0 ";
+                         
+                        }
+                        if(strncmp( reqline[2], "HTTP/1.1", 8) == 0 )
 			{
-				write(clients[n], "HTTP/1.0 400 Bad Request\n", 25);
+                           http = "HTTP/1.1 ";
+                           
+                        }
+                        if( strncmp( reqline[2], "HTTP/1.0", 8) != 0 && strncmp( reqline[2], "HTTP/1.1", 8) != 0 )
+                        {
+                              strcpy(header,http);
+                              strcat(header,"400 Not Found\n");
+                              strcat(header,"Content-Size :");
+                              strcat(header,"NONE");
+                              strcat(header,"\n");
+                              strcat(header,"Content-Type : ");
+                              strcat(header,"Invalid");
+                              strcat(header,"\n\n");
+                              send_client(clients[n],header);
+                              strcpy(error_message,"<HEAD><TITLE>400 Bad Request Reason</TITLE></HEAD>\n");
+                              strcat(error_message,"<html><BODY>>400 Bad Request Reason: Invalid HTTP-Version:");
+                              strcat(error_message,reqline[2]);
+                              strcat(error_message,"\n");
+                              strcat(error_message,"</BODY></html>");
+                             
+                              send_client(clients[n],error_message);
+		              
 			}
+                        
 			else
 			{
 				if ( strncmp(reqline[1], "/\0", 2)==0 )
@@ -228,10 +257,10 @@ void respond(int n,char* ROOT)
                                 strcpy(file_name,reqline[1]);
 				strncpy(path, ROOT+1,strlen(ROOT)-2);
 				strcpy(&path[strlen(ROOT)-2], reqline[1]);
-				printf("file: %s\n", path);
+				
                                 strcpy(format_type,path);
                                 format_type = strrev(format_type);
-                                printf("%s",format_type);
+                                
                                 token = strtok(format_type,".");
                                 strcpy(file_type,".");
                                 strcat(file_type,strrev(token));
@@ -239,9 +268,10 @@ void respond(int n,char* ROOT)
                                
 		                if ( (fd=open(path, O_RDONLY))!=-1 )    //FILE FOUND
 				{
-                                        strcpy(header,"HTTP/1.0 200 Document Follows\n");
+                                        strcpy(header,http);
+                                        strcat(header,"200 Document Follows\n");
                                         itoa(get_size(fd),size);
-                                        printf("size is %s\n",size);
+                                        
                                         strcat(header,"Content-Size :");
                                         strcat(header,size);
                                         strcat(header,"\n");
@@ -252,9 +282,68 @@ void respond(int n,char* ROOT)
 					while ( (bytes_read=read(fd, data_to_send, BYTES))>0 )
 						write (clients[n], data_to_send, bytes_read);
 				}
-				else    write(clients[n], "HTTP/1.0 404 Not Found\n", 23); //FILE NOT FOUND
+				else  
+                                {
+                                         strcpy(header,http);
+                                         strcat(header,"404 Not Found\n");
+                                         strcat(header,"Content-Size :");
+                                         strcat(header,"NONE");
+                                         strcat(header,"\n");
+                                         strcat(header,"Content-Type : ");
+                                         strcat(header,"Invalid");
+                                         strcat(header,"\n\n");
+                                         send_client(clients[n],header);
+                                         strcpy(error_message,"<HEAD><TITLE>404 File not found Reason</TITLE></HEAD>\n");
+                                         strcat(error_message,"<html><BODY>400 File not found Request URL doesn't exist:");
+                                         strcat(error_message,path);
+                                         strcat(error_message,"\n");
+                                         strcat(error_message,"</BODY></html>");
+                                         send_client(clients[n],error_message);
+                                        
+                                }
 			}
 		}
+                else if ( strncmp(reqline[0], "HEAD\0", 4)==0 )
+                {
+                              strcpy(header,http);
+                              strcat(header,"501 Not Implemented\n");
+                              strcat(header,"Content-Size :");
+                              strcat(header,"NONE");
+                              strcat(header,"\n");
+                              strcat(header,"Content-Type : ");
+                              strcat(header,"Invalid");
+                              strcat(header,"\n\n");
+                              send_client(clients[n],header);
+                              strcpy(error_message,"<HEAD><TITLE>501 Not Implemented Reason</TITLE></HEAD>\n");
+                              strcat(error_message,"<html><BODY>>501 Not Implemented");
+                              strcat(error_message,reqline[0]);
+                              strcat(error_message,"\n");
+                              strcat(error_message,"</BODY></html>");
+                              send_client(clients[n],error_message);
+                }
+                else if ( strncmp(reqline[0],"POST\0",4)==0)
+                {
+                    printf("handle post request\n"); 
+                    char* client_msg = strstr(post_mesg,"fname=");
+                    printf("Client Sent You a Message %s",client_msg+6);
+                              strcpy(header,http);
+                              strcat(header,"200 Document Follows\n");
+                              strcat(header,"Content-Size :");
+                              strcat(header,"NONE");
+                              strcat(header,"\n");
+                              strcat(header,"Content-Type : ");
+                              strcat(header,"Invalid");
+                              strcat(header,"\n\n");
+                              send_client(clients[n],header);
+                              strcpy(error_message,"<HEAD><TITLE>Hi ");
+                              strcat(error_message,client_msg+6);
+                              strcat(error_message,"</TITLE></HEAD>\n");
+                              strcat(error_message,"<html><BODY>Hi ");
+                              strcat(error_message,client_msg+6);
+                              strcat(error_message,"</BODY></html>");
+                              send_client(clients[n],error_message);
+
+                }
 	}
 
 	//Closing SOCKET
