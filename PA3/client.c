@@ -11,26 +11,48 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#define PORT 20001
 #define LENGTH 512
 
+typedef struct p1 {
+      uint8_t index;
+			uint16_t size_data;
+			char filesize[10];
+      char partsize[10];
+      char data[512+1];
+      }packet_t;
 
+int sockfd[4];
+int size_each[4];
 void error(const char *msg)
 {
 	perror(msg);
 	exit(1);
 }
 
-int main(int argc, char *argv[])
+int get_filesize(char *filename)
 {
-	/* Variable Definition */
-	int sockfd;
-	int nsockfd;
-	char revbuf[LENGTH];
-	struct sockaddr_in remote_addr;
-
+      FILE* fp = NULL;
+      size_t size = 0;
+      char* size_str = malloc(5);
+      fp = fopen(filename,"rb+");
+      if(fp == NULL)
+      {
+      printf("file can't be opened\n");
+      return 0;
+      }
+      //get its size
+      fseek(fp, 0, SEEK_END);
+      size = ftell(fp);
+      rewind (fp);
+			fclose(fp);
+      printf("Size of the file is %lu\n",size);
+      return size;
+}
+int connect_server(int PORT,int n)
+{
+  struct sockaddr_in remote_addr;
 	/* Get the Socket file descriptor */
-	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+	if ((sockfd[n] = socket(AF_INET, SOCK_STREAM, 0)) == -1)
 	{
 		fprintf(stderr, "ERROR: Failed to obtain Socket Descriptor! (errno = %d)\n",errno);
 		exit(1);
@@ -43,44 +65,131 @@ int main(int argc, char *argv[])
 	bzero(&(remote_addr.sin_zero), 8);
 
 	/* Try to connect the remote */
-	if (connect(sockfd, (struct sockaddr *)&remote_addr, sizeof(struct sockaddr)) == -1)
+	if (connect(sockfd[n], (struct sockaddr *)&remote_addr, sizeof(struct sockaddr)) == -1)
 	{
 		fprintf(stderr, "ERROR: Failed to connect to the host! (errno = %d)\n",errno);
 		exit(1);
 	}
 	else
 		printf("[Client] Connected to server at port %d...ok!\n", PORT);
+}
 
-	/* Send File to Server */
-	//if(!fork())
-	//{
-		char* fs_name = "/home/netsys/ecen5273/PA3/wine.jpg";
-		char sdbuf[LENGTH];
+void split_file(int size)
+{
+  int split_size = 0;
+  int extra = 0;
+  extra = size%4;
+  printf("extra is %d\n",extra);
+  split_size = size/4;
+  if(extra == 0)
+  {
+    size_each[0] = split_size;
+    size_each[1] = split_size;
+    size_each[2] = split_size;
+    size_each[3] = split_size;
+  }
+  else if(extra == 1)
+  {
+    size_each[0] = split_size;
+    size_each[1] = split_size;
+    size_each[2] = split_size;
+    size_each[3] = split_size+1;
+  }
+  else if(extra == 2)
+  {
+    size_each[0] = split_size;
+    size_each[1] = split_size;
+    size_each[2] = split_size + 1;
+    size_each[3] = split_size + 1;
+  }
+  else if(extra == 3)
+  {
+    size_each[0] = split_size;
+    size_each[1] = split_size + 1;
+    size_each[2] = split_size + 1;
+    size_each[3] = split_size + 1;
+  }
+  for (int i = 0;i<4;i++)
+    printf("size of %d part is %d\n",i,size_each[i]);
+}
+
+//convert integer to asci
+char* itoa(int num,char *str)
+{
+   if(str == NULL)
+   return NULL;
+   sprintf(str,"%d",num);
+   printf("size of the file is %s",str);
+   return str;
+}
+
+
+int main(int argc, char *argv[])
+{
+	/* Variable Declarations*/
+  char revbuf[LENGTH];
+	char PORT[6];
+  char *size_char =  malloc(10);
+  char *tsize_char = malloc(10);
+  int part = 0;
+	uint64_t size;
+	int packet_index = 0;
+	//error handling
+	if (argc != 2) {
+			fprintf(stderr,"usage: client portno\n");
+			exit(1);
+	}
+  strcpy(PORT,argv[1]);
+  connect_server(atoi(PORT),0);
+
+    char* fs_name = "/home/netsys/ecen5273/PA3/5mb.jpg";
 		printf("[Client] Sending %s to the Server... ", fs_name);
+		size = get_filesize(fs_name);
+    split_file(size);
 		FILE *fs = fopen(fs_name, "r");
 		if(fs == NULL)
 		{
 			printf("ERROR: File %s not found.\n", fs_name);
 			exit(1);
 		}
-
-		bzero(sdbuf, LENGTH);
 		int fs_block_sz;
-		while((fs_block_sz = fread(sdbuf, sizeof(char), LENGTH, fs)) > 0)
-		{
-		    if(send(sockfd, sdbuf, fs_block_sz, 0) < 0)
-		    {
-		        fprintf(stderr, "ERROR: Failed to send file %s. (errno = %d)\n", fs_name, errno);
-		        break;
-		    }
-		    bzero(sdbuf, LENGTH);
-		}
-		printf("Ok File %s from Client was Sent!\n", fs_name);
-	//}
+    int size_sent = 0;
+		packet_t packet;
+    while(part<=3)
+    {
+  		while((fs_block_sz = fread(packet.data, sizeof(char), LENGTH, fs)) > 0)
+  		{
+          strcpy(packet.partsize ,itoa(size,tsize_char));
+  		    packet.index = part+1;
+  				packet.size_data = fs_block_sz;
+  				strcpy(packet.filesize ,itoa(size_each[part],size_char));
+  				//strcpy(packet.data,sdbuf);
+  				fprintf(stdout,"total filesize:%s partsize:%s packet_index:%d size read:%d\n"
+                  ,packet.partsize,packet.filesize,packet.index,packet.size_data);
+  		    //if(send(sockfd, sdbuf, fs_block_sz, 0) < 0)
+  				if(send(sockfd[0], &packet,sizeof(packet), 0) < 0)
+  		    {
+  		        fprintf(stderr, "ERROR: Failed to send file %s. (errno = %d)\n", fs_name, errno);
+  		        break;
+  		    }
+          //bzero(sdbuf, LENGTH);
+          size_sent = size_sent + fs_block_sz;
+          printf("size of this part :%d and sent is %d\n",size_each[part],size_sent);
+          if(size_sent >= size_each[part])
+          {
+            fprintf(stdout, "Part:%d completed\n",part );
+            break;
+          }
+  				bzero(&packet,sizeof(packet));
+  		 }
+       part++;
+       size_sent = 0;
+		   printf("Ok %d.File %s from Client was Sent!\n",part, fs_name);
+	 }
 
 	/* Receive File from Server */
 	printf("[Client] Receiveing file from Server and saving it as final.txt...");
-	char* fr_name = "/home/netsys/ecen5273/PA3/Server/file.txt";
+	char* fr_name = "/home/netsys/ecen5273/PA3/apple_ex.png";
 	FILE *fr = fopen(fr_name, "a");
 	if(fr == NULL)
 		printf("File %s Cannot be opened.\n", fr_name);
@@ -88,7 +197,7 @@ int main(int argc, char *argv[])
 	{
 		bzero(revbuf, LENGTH);
 		int fr_block_sz = 0;
-	    while((fr_block_sz = recv(sockfd, revbuf, LENGTH, 0)) > 0)
+	    while((fr_block_sz = recv(sockfd[0], revbuf, LENGTH, 0)) > 0)
 	    {
 			int write_sz = fwrite(revbuf, sizeof(char), fr_block_sz, fr);
 	        if(write_sz < fr_block_sz)
