@@ -7,11 +7,13 @@
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <signal.h>
+#include <unistd.h>
 #include <ctype.h>
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#define BACKLOG 5
+#define BACKLOG 100000
+#define CONNMAX 1000
 #define LENGTH 512
 
 typedef struct p1 {
@@ -22,30 +24,142 @@ typedef struct p1 {
       char data[512+1];
       }packet_t;
 
+typedef struct p2 {
+     uint8_t name_size;
+     char filename[255];
+}fileinfo_t;
+/***********commands******/
+typedef enum
+{
+     GET = 1,
+     PUT = 2,
+     DELETE = 3,
+     LIST_FILES = 4,
+     EXIT = 5
+}commands;
+int nsockfd[1000],sockfd;
+
 void error(const char *msg)
 {
 	perror(msg);
 	exit(1);
 }
 
-int main (int argc, char *argv[])
+int recv_file(int sockfd,char* filename)
 {
-	/* Defining Variables */
-	int sockfd;
-	int nsockfd;
-	int num;
+	/*Receive File from Client */
+	printf("filename is %s\n",filename);
+	FILE *fr = fopen(filename, "w");
+	uint64_t size =0;
+	int part = 1;
+	if(fr == NULL)
+		printf("File %s Cannot be opened file on server.\n", filename);
+	else
+	{
+		int fr_block_sz = 0;
+		packet_t packet;
+		int part_size = 0;
+		int file_size = 0;
+		//while((fr_block_sz = recv(nsockfd, revbuf, LENGTH, 0)) > 0)
+		while(part<=4)
+		{
+		while((fr_block_sz = recv(sockfd, &packet, sizeof(packet), 0)) > 0)
+		{
+				//int write_sz = fwrite(revbuf, sizeof(char), fr_block_sz, fr);
+			fprintf(stdout,"part size:%s index: %d size:%d\n",packet.filesize,packet.index,packet.size_data);
+			int write_sz = fwrite(packet.data, sizeof(char),packet.size_data, fr);
+			if(write_sz < packet.size_data)
+				{
+						error("File write failed on server.\n");
+				}
+			size = size + packet.size_data;
+			printf("part:%d bytes recieved %lu\n",part,size);
+			part_size = atoi(packet.filesize);
+			if(size > part_size)
+			//if(size == 693248 || size == 693248*2 )
+			{
+				printf("Done bytes recieved %lu\n",size);
+				break;
+			}
+			if(part ==4)
+			{
+				printf("1:%lu 2:%d 3:%lu\n",(file_size+size), (part_size*3),(packet.size_data+size));
+				if((file_size + size) >= atoi(packet.partsize))
+				{
+				printf("********error******");
+				printf("Done bytes recieved %lu\n",size);
+				break;
+				}
+			}
+			bzero(&packet,sizeof(packet));
+		}
+		printf("%d.part completed size:%lu \n",part,size);
+		part++;
+		file_size = file_size + size;
+		printf("%d  total bytes recieved",file_size);
+		size = 0;
+		bzero(&packet,sizeof(packet));
+		}
+		if(fr_block_sz < 0)
+			{
+					if (errno == EAGAIN)
+					{
+								printf("recv() timed out.\n");
+						}
+						else
+						{
+								fprintf(stderr, "recv() failed due to errno = %d\n", errno);
+								exit(1);
+						}
+				}
+		printf("Ok received from client!\n");
+		fclose(fr);
+	}
+}
+
+/****************************************************************
+*@Description: Check the user input if it is valid
+*
+*@param NULL
+*
+*@return enum command
+***************************************************************/
+uint8_t command_decode(char *command)
+{
+      uint8_t cmd_recieved = 0;
+      if(!(strcmp(command,"get")))
+      {
+      printf("client wants to get a file\n");
+      cmd_recieved = GET;
+      }
+      if(!(strcmp(command,"put")))
+      {
+      printf("client wants to put a file\n");
+      cmd_recieved = PUT;
+      }
+      if(!(strcmp(command,"delete")))
+      {
+      printf("client wants to delete a file\n");
+      cmd_recieved = DELETE;
+      }
+     if(!(strcmp(command,"ls")))
+      {
+      printf("client wants list of files\n");
+      cmd_recieved = LIST_FILES;
+      }
+     if(!(strcmp(command,"exit")))
+     {
+      printf("client wants to stop the server\n");
+      cmd_recieved = EXIT;
+     }
+    return cmd_recieved;
+}
+//start server
+void startServer(char *port)
+{
 	int sin_size;
 	struct sockaddr_in addr_local; /* client addr */
 	struct sockaddr_in addr_remote; /* server addr */
-	char revbuf[LENGTH]; // Receiver buffer
-	char PORT[6];
-
-	//error handling
-	if (argc != 2) {
-			fprintf(stderr,"usage: server portno\n");
-			exit(1);
-	}
-	strcpy(PORT,argv[1]);
 	/* Get the Socket file descriptor */
 	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1 )
 	{
@@ -57,7 +171,7 @@ int main (int argc, char *argv[])
 
 	/* Fill the client socket address struct */
 	addr_local.sin_family = AF_INET; // Protocol Family
-	addr_local.sin_port = htons(atoi(PORT)); // Port number
+	addr_local.sin_port = htons(atoi(port)); // Port number
 	addr_local.sin_addr.s_addr = INADDR_ANY; // AutoFill local address
 	bzero(&(addr_local.sin_zero), 8); // Flush the rest of struct
 
@@ -68,7 +182,7 @@ int main (int argc, char *argv[])
 		exit(1);
 	}
 	else
-		printf("[Server] Binded tcp port %s in addr 127.0.0.1 sucessfully.\n",PORT);
+		printf("[Server] Binded tcp port %s in addr 127.0.0.1 sucessfully.\n",port);
 
 	/* Listen remote connect/calling */
 	if(listen(sockfd,BACKLOG) == -1)
@@ -77,7 +191,94 @@ int main (int argc, char *argv[])
 		exit(1);
 	}
 	else
-		printf ("[Server] Listening the port %s successfully.\n", PORT);
+		printf ("[Server] Listening the port %s successfully.\n", port);
+
+}
+
+void client_respond(int n)
+{
+    int rcvd = 0;
+    int option = 0;
+    char* command = malloc(10);
+    char* filename = malloc(20);
+    char* size = malloc(7);
+		fileinfo_t fileinfo;
+    rcvd=recv(nsockfd[n],command, 10, 0);
+    if (rcvd<0)    // receive error
+      fprintf(stdout,("recv() error\n"));
+    else if (rcvd==0)    // receive socket closed
+      fprintf(stdout,"Client disconnected upexpectedly.\n");
+    option  = command_decode(command);
+    bzero(command,10);
+    switch(option)
+    {
+      case PUT:
+                rcvd=recv(nsockfd[n],&fileinfo,sizeof(fileinfo), 0);
+                printf("with filename is %s\n",fileinfo.filename);
+								strncpy(filename,fileinfo.filename,fileinfo.name_size);
+                recv_file(nsockfd[n],filename);
+    }
+}
+
+
+int main (int argc, char *argv[])
+{
+	/* Defining Variables */
+//	int sockfd;
+	//int nsockfd;
+	int sin_size;
+//	struct sockaddr_in addr_local; /* client addr */
+	struct sockaddr_in addr_remote; /* server addr */
+//	char revbuf[LENGTH]; // Receiver buffer
+	int option = 0;
+	char PORT[6];
+	int rcvd = 0;
+	int slot = 0;
+	char* filename = malloc(20);
+  char* command =  malloc(10);
+	//error handling
+	if (argc != 2) {
+			fprintf(stderr,"usage: server portno\n");
+			exit(1);
+	}
+	strcpy(PORT,argv[1]);
+	// initialise all elements to -1: no client is der
+
+	for (int i=0; i<CONNMAX; i++)
+	 nsockfd[i]=-1;
+	startServer(PORT);
+	/* Get the Socket file descriptor */
+	/*if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1 )
+	{
+		fprintf(stderr, "ERROR: Failed to obtain Socket Descriptor. (errno = %d)\n", errno);
+		exit(1);
+	}
+	else
+		printf("[Server] Obtaining socket descriptor successfully.\n");
+
+	/* Fill the client socket address struct */
+	/*addr_local.sin_family = AF_INET; // Protocol Family
+	addr_local.sin_port = htons(atoi(PORT)); // Port number
+	addr_local.sin_addr.s_addr = INADDR_ANY; // AutoFill local address
+	bzero(&(addr_local.sin_zero), 8); // Flush the rest of struct
+
+	/* Bind a special Port */
+	/*if( bind(sockfd, (struct sockaddr*)&addr_local, sizeof(struct sockaddr)) == -1 )
+	{
+		fprintf(stderr, "ERROR: Failed to bind Port. (errno = %d)\n", errno);
+		exit(1);
+	}
+	else
+		printf("[Server] Binded tcp port %s in addr 127.0.0.1 sucessfully.\n",PORT);
+
+	/* Listen remote connect/calling */
+	/*if(listen(sockfd,BACKLOG) == -1)
+	{
+		fprintf(stderr, "ERROR: Failed to listen Port. (errno = %d)\n", errno);
+		exit(1);
+	}
+	else
+		printf ("[Server] Listening the port %s successfully.\n", PORT);*/
 
 	int success = 0;
 	while(success == 0)
@@ -85,16 +286,31 @@ int main (int argc, char *argv[])
 		sin_size = sizeof(struct sockaddr_in);
 
 		/* Wait a connection, and obtain a new socket file despriptor for single connection */
-		if ((nsockfd = accept(sockfd, (struct sockaddr *)&addr_remote, &sin_size)) == -1)
+		if ((nsockfd[slot] = accept(sockfd, (struct sockaddr *)&addr_remote, &sin_size)) == -1)
 		{
 		    fprintf(stderr, "ERROR: Obtaining new Socket Despcritor. (errno = %d)\n", errno);
 			exit(1);
 		}
 		else
 			printf("[Server] Server has got connected from %s.\n", inet_ntoa(addr_remote.sin_addr));
+			if (nsockfd[slot]<0)
+  			printf ("accept() error");
+  		else
+  		{
+  			if ( fork()==0 )
+  			{
+					printf("slot request:%d\n",slot);
+  				client_respond(slot);
+  				exit(0);
+  			}
+  		}
+
+  		while (nsockfd[slot]!=-1) slot = (slot+1)%CONNMAX;
+		}
+		return 0;
 
 		/*Receive File from Client */
-		char* fr_name = "/home/netsys/ecen5273/PA3/Server/5mb.jpg";
+		/*char* fr_name = "/home/netsys/ecen5273/PA3/Server/apple.png";
 		FILE *fr = fopen(fr_name, "w");
 		uint64_t size =0;
 		int part = 1;
@@ -161,7 +377,7 @@ int main (int argc, char *argv[])
         	}
 			printf("Ok received from client!\n");
 			fclose(fr);
-		}
+		}*/
 
 		/* Call the Script */
 		//system("cd ; chmod +x script.sh ; ./script.sh");
@@ -169,7 +385,7 @@ int main (int argc, char *argv[])
 		/* Send File to Client */
 		//if(!fork())
 		//{
-		    char* fs_name = "/home/netsys/ecen5273/PA3/Server/apple_ex.png";
+		  /*  char* fs_name = "/home/netsys/ecen5273/PA3/Server/apple_ex.png";
 		    char sdbuf[LENGTH]; // Send buffer
 		    printf("[Server] Sending %s to the Client...", fs_name);
 		    FILE *fs = fopen(fs_name, "r");
@@ -194,7 +410,7 @@ int main (int argc, char *argv[])
 		    success = 1;
 		    close(nsockfd);
 		    printf("[Server] Connection with Client closed. Server will wait now...\n");
-		    while(waitpid(-1, NULL, WNOHANG) > 0);
+		    while(waitpid(-1, NULL, WNOHANG) > 0);*/
 		//}
-	}
+	//}
 }
