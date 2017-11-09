@@ -181,6 +181,7 @@ int send_file(char* filename)
           fprintf(stdout, "Part:%d completed\n",part );
           break;
         }
+        for(int i =0;i<1000000;i++);
         bzero(&packet,sizeof(packet));
      }
      part++;
@@ -277,10 +278,6 @@ int main(int argc, char *argv[])
               printf("Enter the file name\n");
               scanf("%s",filename);
               send_fileinfo(filename);
-            /*  if (send(sockfd[0], filename,strlen(filename),0) == -1){
-                  perror("send");
-                  exit (1);
-              }*/
               send_file(filename);
 
 

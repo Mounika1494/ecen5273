@@ -63,6 +63,7 @@ int recv_file(int sockfd,char* filename)
 		//while((fr_block_sz = recv(nsockfd, revbuf, LENGTH, 0)) > 0)
 		while(part<=4)
 		{
+			bzero(&packet,sizeof(packet));
 		while((fr_block_sz = recv(sockfd, &packet, sizeof(packet), 0)) > 0)
 		{
 				//int write_sz = fwrite(revbuf, sizeof(char), fr_block_sz, fr);
@@ -247,39 +248,6 @@ int main (int argc, char *argv[])
 	for (int i=0; i<CONNMAX; i++)
 	 nsockfd[i]=-1;
 	startServer(PORT);
-	/* Get the Socket file descriptor */
-	/*if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1 )
-	{
-		fprintf(stderr, "ERROR: Failed to obtain Socket Descriptor. (errno = %d)\n", errno);
-		exit(1);
-	}
-	else
-		printf("[Server] Obtaining socket descriptor successfully.\n");
-
-	/* Fill the client socket address struct */
-	/*addr_local.sin_family = AF_INET; // Protocol Family
-	addr_local.sin_port = htons(atoi(PORT)); // Port number
-	addr_local.sin_addr.s_addr = INADDR_ANY; // AutoFill local address
-	bzero(&(addr_local.sin_zero), 8); // Flush the rest of struct
-
-	/* Bind a special Port */
-	/*if( bind(sockfd, (struct sockaddr*)&addr_local, sizeof(struct sockaddr)) == -1 )
-	{
-		fprintf(stderr, "ERROR: Failed to bind Port. (errno = %d)\n", errno);
-		exit(1);
-	}
-	else
-		printf("[Server] Binded tcp port %s in addr 127.0.0.1 sucessfully.\n",PORT);
-
-	/* Listen remote connect/calling */
-	/*if(listen(sockfd,BACKLOG) == -1)
-	{
-		fprintf(stderr, "ERROR: Failed to listen Port. (errno = %d)\n", errno);
-		exit(1);
-	}
-	else
-		printf ("[Server] Listening the port %s successfully.\n", PORT);*/
-
 	int success = 0;
 	while(success == 0)
 	{
