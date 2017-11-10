@@ -168,7 +168,7 @@ int send_file(char* filename)
         fprintf(stdout,"total filesize:%s partsize:%s packet_index:%d size read:%d %lu\n"
                 ,packet.partsize,packet.filesize,packet.index,packet.size_data,sizeof(packet));
         //if(send(sockfd, sdbuf, fs_block_sz, 0) < 0)
-        if(send(sockfd[0], &packet,sizeof(packet), 0) < 0)
+        if(send(sockfd[part], &packet,sizeof(packet), 0) < 0)
         {
             fprintf(stderr, "ERROR: Failed to send file %s. (errno = %d)\n", filename, errno);
             break;
