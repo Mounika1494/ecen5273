@@ -233,12 +233,12 @@ uint8_t user_command()
      }
      return op_selected;
 }
-void send_fileinfo(char* filename)
+void send_fileinfo(char* filename,int n)
 {
   fileinfo_t fileinfo;
   fileinfo.name_size = strlen(filename);
   strncpy(fileinfo.filename,filename,fileinfo.name_size);
-  if (send(sockfd[0], &fileinfo,sizeof(fileinfo),0) == -1){
+  if (send(sockfd[n], &fileinfo,sizeof(fileinfo),0) == -1){
         perror("send");
         exit (1);
 }
@@ -248,16 +248,22 @@ int main(int argc, char *argv[])
 {
 	/* Variable Declarations*/
   char revbuf[LENGTH];
-	char PORT[6];
+	char PORT[4][6];
   char* filename = malloc(10);
   int option;
 	//error handling
-	if (argc != 2) {
+	if (argc != 5) {
 			fprintf(stderr,"usage: client portno\n");
 			exit(1);
 	}
-  strcpy(PORT,argv[1]);
-  connect_server(atoi(PORT),0);
+  strcpy(PORT[0],argv[1]);
+  strcpy(PORT[1],argv[2]);
+  strcpy(PORT[2],argv[3]);
+  strcpy(PORT[3],argv[4]);
+  connect_server(atoi(PORT[0]),0);
+  connect_server(atoi(PORT[1]),1);
+  connect_server(atoi(PORT[2]),2);
+  connect_server(atoi(PORT[3]),3);
   while (1)
   {
     option = user_command();
@@ -270,14 +276,17 @@ int main(int argc, char *argv[])
     switch(option)
     {
       case PUT:
-              if (send(sockfd[0], "put",strlen("put"),0) == -1){
+              for(int i =0;i<4;i++)
+              {
+              if (send(sockfd[i], "put",strlen("put"),0) == -1){
                   perror("send");
                   exit (1);
               }
               printf("Sent the put command\n");
               printf("Enter the file name\n");
               scanf("%s",filename);
-              send_fileinfo(filename);
+              send_fileinfo(filename, i);
+              }
               send_file(filename);
 
 

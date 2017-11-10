@@ -48,8 +48,13 @@ void error(const char *msg)
 int recv_file(int sockfd,char* filename)
 {
 	/*Receive File from Client */
-	printf("filename is %s\n",filename);
-	FILE *fr = fopen(filename, "w");
+  char *path = malloc(50);
+  strcat(path,"Mounika");
+	strcat(path,"/");
+	strcat(path,".");
+  strcat(path,filename);
+	printf("filename is %s\n",path);
+	FILE *fr = fopen(path, "w");
 	uint64_t size =0;
 	int part = 1;
 	if(fr == NULL)
@@ -276,76 +281,6 @@ int main (int argc, char *argv[])
   		while (nsockfd[slot]!=-1) slot = (slot+1)%CONNMAX;
 		}
 		return 0;
-
-		/*Receive File from Client */
-		/*char* fr_name = "/home/netsys/ecen5273/PA3/Server/apple.png";
-		FILE *fr = fopen(fr_name, "w");
-		uint64_t size =0;
-		int part = 1;
-		if(fr == NULL)
-			printf("File %s Cannot be opened file on server.\n", fr_name);
-		else
-		{
-			bzero(revbuf, LENGTH);
-			int fr_block_sz = 0;
-			packet_t packet;
-			int part_size = 0;
-			int file_size = 0;
-			//while((fr_block_sz = recv(nsockfd, revbuf, LENGTH, 0)) > 0)
-			while(part<=4)
-			{
-			while((fr_block_sz = recv(nsockfd, &packet, sizeof(packet), 0)) > 0)
-			{
-			    //int write_sz = fwrite(revbuf, sizeof(char), fr_block_sz, fr);
-				fprintf(stdout,"part size:%s index: %d size:%d\n",packet.filesize,packet.index,packet.size_data);
-				int write_sz = fwrite(packet.data, sizeof(char),packet.size_data, fr);
-				if(write_sz < packet.size_data)
-			    {
-			        error("File write failed on server.\n");
-			    }
-				size = size + packet.size_data;
-				printf("part:%d bytes recieved %lu\n",part,size);
-        part_size = atoi(packet.filesize);
-				if(size > part_size)
-        //if(size == 693248 || size == 693248*2 )
-				{
-					printf("Done bytes recieved %lu\n",size);
-					break;
-				}
-				if(part ==4)
-				{
-					printf("1:%lu 2:%d 3:%lu\n",(file_size+size), (part_size*3),(packet.size_data+size));
-					if((file_size + size) == atoi(packet.partsize))
-					{
-					printf("********error******");
-					printf("Done bytes recieved %lu\n",size);
-					break;
-				  }
-			  }
-				bzero(&packet,sizeof(packet));
-			}
-			printf("%d.part completed size:%lu \n",part,size);
-			part++;
-      file_size = file_size + size;
-			printf("%d  total bytes recieved",file_size);
-			size = 0;
-			bzero(&packet,sizeof(packet));
-		  }
-			if(fr_block_sz < 0)
-		    {
-		        if (errno == EAGAIN)
-	        	{
-	                printf("recv() timed out.\n");
-	            }
-	            else
-	            {
-	                fprintf(stderr, "recv() failed due to errno = %d\n", errno);
-					        exit(1);
-	            }
-        	}
-			printf("Ok received from client!\n");
-			fclose(fr);
-		}*/
 
 		/* Call the Script */
 		//system("cd ; chmod +x script.sh ; ./script.sh");
