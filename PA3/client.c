@@ -123,6 +123,12 @@ void split_file(int size)
     size_each[2] = split_size + 1;
     size_each[3] = split_size + 1;
   }
+  for(int i = 0;i<3;i++)
+  {
+  if(size_each[i]%512 != 0)
+    size_each[i] += (512-size_each[i]%512);
+  }
+  size_each[3] = size - (size_each[0]+size_each[1]+size_each[2]);
   for (int i = 0;i<4;i++)
     printf("size of %d part is %d\n",i,size_each[i]);
 }
@@ -189,6 +195,67 @@ int send_file(char* filename)
      printf("Ok %d.File %s from Client was Sent!\n",part, filename);
  }
 }
+
+int recv_file(char* filename)
+{
+  struct stat st = {0};
+	/*Receive File from Client */
+  char *path = malloc(50);
+  char *part_str = malloc(2);
+  int first_time = 1;
+  FILE* fr = NULL;
+	uint64_t size =0;
+	int part = 1;
+
+	int fr_block_sz = 0;
+	packet_t packet;
+	int part_size = 0;
+	int file_size = 0;
+
+  while(slot<3)
+  {
+		bzero(&packet,sizeof(packet));
+		while((fr_block_sz = recv(sockfd[slot], &packet, sizeof(packet), 0)) > 0)
+		{
+      part = packet.index;
+      itoa(packet.index,part_str);
+      if(fr == NULL)
+        printf("File %s Cannot be opened file on server.\n", filename);
+			fprintf(stdout,"part size:%s index: %d size:%d\n",packet.filesize,packet.index,packet.size_data);
+			int write_sz = fwrite(packet.data, sizeof(char),packet.size_data, fr);
+			if(write_sz < packet.size_data)
+				{
+						error("File write failed on server.\n");
+				}
+			size = size + packet.size_data;
+			printf("part:%d bytes recieved %lu\n",part,size);
+			part_size = atoi(packet.filesize);
+			if(size == part_size)
+			{
+				printf("Done bytes recieved %lu\n",size);
+				break;
+			}
+			bzero(&packet,sizeof(packet));
+		}
+		printf("%d.part completed size:%lu \n",part,size);
+		bzero(&packet,sizeof(packet));
+		if(fr_block_sz < 0)
+			{
+					if (errno == EAGAIN)
+					{
+								printf("recv() timed out.\n");
+					}
+					else
+					{
+							fprintf(stderr, "recv() failed due to errno = %d\n", errno);
+							exit(1);
+					}
+				}
+		printf("Ok received from client!\n");
+		fclose(fr);
+  }
+}
+
 /****************************************************************
 *@Description: Check the user input if it is valid
 *
@@ -288,6 +355,22 @@ int main(int argc, char *argv[])
               send_fileinfo(filename, i);
               }
               send_file(filename);
+              break;
+      case GET:
+              for(int i =0;i<4;i++)
+              {
+              if (send(sockfd[i], "get",strlen("get"),0) == -1){
+                  perror("recieve");
+                  exit (1);
+              }
+              printf("Sent the get command\n");
+              printf("Enter the file name\n");
+              scanf("%s",filename);
+              send_fileinfo(filename, i);
+              }
+              recv_file(filename);
+              break;
+
 
 
 	/* Receive File from Server

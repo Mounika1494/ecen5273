@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
@@ -57,15 +58,12 @@ char* itoa(int num,char *str)
 
 int recv_file(int sockfd,char* filename)
 {
+  struct stat st = {0};
 	/*Receive File from Client */
   char *path = malloc(50);
   char *part_str = malloc(2);
   int first_time = 1;
   FILE* fr = NULL;
-  strcat(path,"Mounika");
-	strcat(path,"/");
-	strcat(path,".");
-  strcat(path,filename);
 	uint64_t size =0;
 	int part = 1;
 
@@ -82,6 +80,19 @@ int recv_file(int sockfd,char* filename)
       printf("filename is %s\n",path);
       if(first_time == 1)
       {
+        strcat(path,"DFS");
+        strcat(path,part_str);
+        if(stat(path,&st) == -1){
+          mkdir(path,0700);
+        }
+        strcat(path,"/");
+        strcat(path,"Mounika");
+        if(stat(path,&st) == -1){
+          mkdir(path,0700);
+        }
+        strcat(path,"/");
+        strcat(path,".");
+        strcat(path,filename);
         strcat(path,".");
         strcat(path,part_str);
         fr = fopen(path, "w");
@@ -98,22 +109,12 @@ int recv_file(int sockfd,char* filename)
 			size = size + packet.size_data;
 			printf("part:%d bytes recieved %lu\n",part,size);
 			part_size = atoi(packet.filesize);
-			if(size > part_size)
+			if(size == part_size)
 			//if(size == 693248 || size == 693248*2 )
 			{
 				printf("Done bytes recieved %lu\n",size);
 				break;
 			}
-	/*	if(part ==4)
-			{
-				//printf("1:%lu 2:%d 3:%lu\n",(file_size+size), (part_size*3),(packet.size_data+size));
-				if((part_size*3) + size) >= atoi(packet.partsize))
-				{
-				printf("********error******");
-				printf("Done bytes recieved %lu\n",size);
-				break;
-				}
-			}*/
 			bzero(&packet,sizeof(packet));
 		}
 		printf("%d.part completed size:%lu \n",part,size);
@@ -234,6 +235,7 @@ void client_respond(int n)
                 printf("with filename is %s\n",fileinfo.filename);
 								strncpy(filename,fileinfo.filename,fileinfo.name_size);
                 recv_file(nsockfd[n],filename);
+
     }
 }
 
