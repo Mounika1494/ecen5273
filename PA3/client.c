@@ -10,6 +10,8 @@
 #include <ctype.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <fcntl.h>
+#include <sys/mman.h>
 
 #define LENGTH 512
 
@@ -37,6 +39,7 @@ typedef enum
 
 int sockfd[4];
 int size_each[4];
+int part_to_send[8];
 void error(const char *msg)
 {
 	perror(msg);
@@ -173,6 +176,7 @@ int send_file(char* filename)
         //strcpy(packet.data,sdbuf);
         fprintf(stdout,"total filesize:%s partsize:%s packet_index:%d size read:%d %lu\n"
                 ,packet.partsize,packet.filesize,packet.index,packet.size_data,sizeof(packet));
+        
         //if(send(sockfd, sdbuf, fs_block_sz, 0) < 0)
         if(send(sockfd[part], &packet,sizeof(packet), 0) < 0)
         {
@@ -196,11 +200,24 @@ int send_file(char* filename)
  }
 }
 
-int recv_file(char* filename)
+void computeMd5sum(char *filename, char md5sum[100])  {
+    //char md5sum[100];
+    char systemmd5Cmd[100];
+    strncpy(systemmd5Cmd, "md5sum ", sizeof("md5sum "));
+    strncat(systemmd5Cmd, filename, strlen(filename));
+    FILE *f = popen(systemmd5Cmd, "r");
+    while (fgets(md5sum, 100, f) != NULL) {
+	  strtok(md5sum,"  \t\n");
+    printf( "%s %d\n", md5sum, strlen(md5sum) );
+    }
+    pclose(f);
+}
+
+/*int recv_file(char* filename)
 {
   struct stat st = {0};
 	/*Receive File from Client */
-  char *path = malloc(50);
+/*  char *path = malloc(50);
   char *part_str = malloc(2);
   int first_time = 1;
   FILE* fr = NULL;
@@ -254,7 +271,7 @@ int recv_file(char* filename)
 		printf("Ok received from client!\n");
 		fclose(fr);
   }
-}
+}*/
 
 /****************************************************************
 *@Description: Check the user input if it is valid
@@ -311,6 +328,16 @@ void send_fileinfo(char* filename,int n)
 }
 }
 
+int decision_md5(char* filename)
+{
+  int md5sumInt,md5sumIndex = 0;
+  char md5sum[100];
+  computeMd5sum(filename, md5sum);
+ 	md5sumInt = md5sum[strlen(md5sum)-1] % 4;
+ 	md5sumIndex = (4-md5sumInt)%4;
+  printf("md5sumIndex %d\n", md5sumIndex);
+}
+
 int main(int argc, char *argv[])
 {
 	/* Variable Declarations*/
@@ -354,9 +381,10 @@ int main(int argc, char *argv[])
               scanf("%s",filename);
               send_fileinfo(filename, i);
               }
+              decision_md5(filename);
               send_file(filename);
               break;
-      case GET:
+/*      case GET:
               for(int i =0;i<4;i++)
               {
               if (send(sockfd[i], "get",strlen("get"),0) == -1){
@@ -369,7 +397,7 @@ int main(int argc, char *argv[])
               send_fileinfo(filename, i);
               }
               recv_file(filename);
-              break;
+              break;*/
 
 
 
