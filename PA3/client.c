@@ -36,10 +36,10 @@ typedef enum
      EXIT = 5
 }commands;
 
-
 int sockfd[4];
 int size_each[4];
 int part_to_send[8];
+packet_t packet;
 void error(const char *msg)
 {
 	perror(msg);
@@ -65,6 +65,7 @@ int get_filesize(char *filename)
       printf("Size of the file is %lu\n",size);
       return size;
 }
+
 int connect_server(int PORT,int n)
 {
   struct sockaddr_in remote_addr;
@@ -142,9 +143,11 @@ char* itoa(int num,char *str)
    if(str == NULL)
    return NULL;
    sprintf(str,"%d",num);
-   printf("size of the file is %s",str);
+   printf("itoa:size of the file is %s\n",str);
    return str;
 }
+
+
 int send_file(char* filename)
 {
   char *size_char =  malloc(10);
@@ -152,6 +155,7 @@ int send_file(char* filename)
   int part = 0;
   uint64_t size;
   int packet_index = 0;
+  char *spart = malloc(2);
 //  char* fs_name = "/home/netsys/ecen5273/PA3/apple.png";
   printf("[Client] Sending %s to the Server... ", filename);
   size = get_filesize(filename);
@@ -164,39 +168,97 @@ int send_file(char* filename)
   }
   int fs_block_sz;
   int size_sent = 0;
-  packet_t packet;
   while(part<=3)
   {
+    FILE *fp = fopen(itoa(part,spart),"w");
     while((fs_block_sz = fread(packet.data, sizeof(char), LENGTH, fs)) > 0)
     {
-        strcpy(packet.partsize ,itoa(size,tsize_char));
-        packet.index = part+1;
-        packet.size_data = fs_block_sz;
-        strcpy(packet.filesize ,itoa(size_each[part],size_char));
-        //strcpy(packet.data,sdbuf);
-        fprintf(stdout,"total filesize:%s partsize:%s packet_index:%d size read:%d %lu\n"
-                ,packet.partsize,packet.filesize,packet.index,packet.size_data,sizeof(packet));
-        
-        //if(send(sockfd, sdbuf, fs_block_sz, 0) < 0)
-        if(send(sockfd[part], &packet,sizeof(packet), 0) < 0)
-        {
-            fprintf(stderr, "ERROR: Failed to send file %s. (errno = %d)\n", filename, errno);
-            break;
-        }
-        //bzero(sdbuf, LENGTH);
+        fwrite(packet.data,sizeof(char),fs_block_sz,fp);
         size_sent = size_sent + fs_block_sz;
-        printf("size of this part :%d and sent is %d\n",size_each[part],size_sent);
+      //  printf("size of this part :%d and sent is %d\n",size_each[part],size_sent);
         if(size_sent >= size_each[part])
         {
           fprintf(stdout, "Part:%d completed\n",part );
           break;
         }
-        for(int i =0;i<1000000;i++);
+        //for(int i =0;i<1000000;i++);
         bzero(&packet,sizeof(packet));
      }
      part++;
      size_sent = 0;
-     printf("Ok %d.File %s from Client was Sent!\n",part, filename);
+     fclose(fp);
+ }
+ fclose(fs);
+}
+
+void send_part_file(int server)
+{
+  int start_index = 0;
+  int end_index = 0;
+  int socket_index = 0;
+  if(server == 1)
+  {
+    printf("******sending to server1******\n");
+    start_index = 0;
+    end_index = 2;
+    socket_index = 0;
+  }
+  if(server == 2)
+  {
+    printf("******sending to server2******\n");
+    start_index = 2;
+    end_index = 4;
+    socket_index = 1;
+  }
+  if(server == 3)
+  {
+    printf("******sending to server3******\n");
+    start_index = 4;
+    end_index = 6;
+    socket_index = 2;
+  }
+  if(server == 4)
+  {
+    printf("******sending to server4******\n");
+    start_index = 6;
+    end_index = 8;
+    socket_index = 3;
+  }
+  int fs_block_sz;
+  int size_sent = 0;
+  char *spart = malloc(2);
+  char *size_char =  malloc(10);
+  for(int j = start_index;j<end_index;j++)
+  {
+  FILE *fp = fopen(itoa(part_to_send[j]-1,spart),"r");
+  while((fs_block_sz = fread(packet.data, sizeof(char), LENGTH, fp)) > 0)
+  {
+    //printf("part_to_send[j] is %d\n",part_to_send[j]);
+    packet.size_data = fs_block_sz;
+    packet.index = part_to_send[j];
+    strcpy(packet.filesize ,itoa(size_each[part_to_send[j]-1],size_char));
+    strcpy(packet.partsize ,"22132");;
+    fprintf(stdout,"total filesize:%s partsize:%s packet_index:%d size read:%d %lu\n"
+        ,packet.partsize,packet.filesize,
+        packet.index,packet.size_data,sizeof(packet));
+    if(send(sockfd[socket_index], &packet,sizeof(packet), 0) < 0)
+    {
+        fprintf(stderr, "ERROR: Failed to send file (errno = %d)\n", errno);
+        break;
+    }
+    size_sent = size_sent + fs_block_sz;
+    printf("size of this part :%d and sent is %d\n",size_each[part_to_send[j]-1],size_sent);
+    if(size_sent >= size_each[part_to_send[j]-1])
+    {
+      fprintf(stdout, "Part:%d completed\n",size_each[part_to_send[j]-1]);
+      break;
+    }
+    for(int i =0;i<1000000;i++);
+    bzero(&packet,sizeof(packet));
+ }
+ fclose(fp);
+ size_sent = 0;
+ printf("Ok %d.File from Client was Sent:size %d!\n",part_to_send[j],size_each[part_to_send[j]-1]);
  }
 }
 
@@ -336,6 +398,55 @@ int decision_md5(char* filename)
  	md5sumInt = md5sum[strlen(md5sum)-1] % 4;
  	md5sumIndex = (4-md5sumInt)%4;
   printf("md5sumIndex %d\n", md5sumIndex);
+  if(md5sumIndex == 0)
+ {
+    part_to_send[0] = 1;
+    part_to_send[1] = 2;
+    part_to_send[2] = 2;
+    part_to_send[3] = 3;
+    part_to_send[4] = 3;
+    part_to_send[5] = 4;
+    part_to_send[6] = 4;
+    part_to_send[7] = 1;
+ }
+  if(md5sumIndex == 1)
+  {
+    part_to_send[0] = 4;
+    part_to_send[1] = 1;
+    part_to_send[2] = 1;
+    part_to_send[3] = 2;
+    part_to_send[4] = 2;
+    part_to_send[5] = 3;
+    part_to_send[6] = 3;
+    part_to_send[7] = 4;
+  }
+  if(md5sumIndex == 2)
+  {
+    part_to_send[0] = 3;
+    part_to_send[1] = 4;
+    part_to_send[2] = 4;
+    part_to_send[3] = 1;
+    part_to_send[4] = 1;
+    part_to_send[5] = 2;
+    part_to_send[6] = 2;
+    part_to_send[7] = 3;
+  }
+  if(md5sumIndex == 3)
+  {
+    part_to_send[0] = 2;
+    part_to_send[1] = 3;
+    part_to_send[2] = 3;
+    part_to_send[3] = 4;
+    part_to_send[4] = 4;
+    part_to_send[5] = 1;
+    part_to_send[6] = 1;
+    part_to_send[7] = 2;
+  }
+  printf("order\n");
+  for(int i=0;i<8;i++)
+  {
+   printf("%d",part_to_send[i]);
+  }
 }
 
 int main(int argc, char *argv[])
@@ -383,8 +494,13 @@ int main(int argc, char *argv[])
               }
               decision_md5(filename);
               send_file(filename);
+              send_part_file(1);
+              send_part_file(2);
+              send_part_file(3);
+              send_part_file(4);
               break;
-/*      case GET:
+     case GET:
+
               for(int i =0;i<4;i++)
               {
               if (send(sockfd[i], "get",strlen("get"),0) == -1){

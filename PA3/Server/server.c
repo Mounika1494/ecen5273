@@ -39,6 +39,7 @@ typedef enum
      EXIT = 5
 }commands;
 int nsockfd[1000],sockfd;
+char* server_folder;
 
 void error(const char *msg)
 {
@@ -72,7 +73,12 @@ int recv_file(int sockfd,char* filename)
 		int part_size = 0;
 		int file_size = 0;
 		//while((fr_block_sz = recv(nsockfd, revbuf, LENGTH, 0)) > 0)
-		bzero(&packet,sizeof(packet));
+    for(int i = 0;i<2;i++)
+    {
+    bzero(path,50);
+    first_time = 1;
+    size = 0;
+    bzero(&packet,sizeof(packet));
 		while((fr_block_sz = recv(sockfd, &packet, sizeof(packet), 0)) > 0)
 		{
       part = packet.index;
@@ -80,8 +86,7 @@ int recv_file(int sockfd,char* filename)
       printf("filename is %s\n",path);
       if(first_time == 1)
       {
-        strcat(path,"DFS");
-        strcat(path,part_str);
+        strcat(path,server_folder);
         if(stat(path,&st) == -1){
           mkdir(path,0700);
         }
@@ -133,6 +138,7 @@ int recv_file(int sockfd,char* filename)
 				}
 		printf("Ok received from client!\n");
 		fclose(fr);
+  }
 }
 
 /****************************************************************
@@ -255,12 +261,14 @@ int main (int argc, char *argv[])
 	int slot = 0;
 	char* filename = malloc(20);
   char* command =  malloc(10);
+  server_folder = malloc(5);
 	//error handling
-	if (argc != 2) {
+	if (argc != 3) {
 			fprintf(stderr,"usage: server portno\n");
 			exit(1);
 	}
-	strcpy(PORT,argv[1]);
+	strcpy(PORT,argv[2]);
+  strcpy(server_folder,argv[1]);
 	// initialise all elements to -1: no client is der
 
 	for (int i=0; i<CONNMAX; i++)
