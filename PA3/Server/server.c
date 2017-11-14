@@ -41,6 +41,7 @@ typedef enum
 int nsockfd[1000],sockfd;
 char* server_folder;
 
+
 void error(const char *msg)
 {
 	perror(msg);
@@ -53,7 +54,7 @@ char* itoa(int num,char *str)
    if(str == NULL)
    return NULL;
    sprintf(str,"%d",num);
-   printf("size of the file is %s",str);
+   printf("itoa: size of the file is %s\n",str);
    return str;
 }
 
@@ -219,6 +220,53 @@ void startServer(char *port)
 
 }
 
+void check_fileinfo(int sockfd,char* filename)
+{
+  int part[2];
+  char *path = malloc(50);
+  char *part_str = malloc(2);
+  struct stat st = {0};
+  int j = 0;
+  char *send_data = malloc(3);
+  for(int i =1;i<=4;i++)
+  {
+  bzero(path,50);
+  strcat(path,server_folder);
+  strcat(path,"/");
+  strcat(path,"Mounika");
+  strcat(path,"/");
+  strcat(path,".");
+  strcat(path,filename);
+  strcat(path,".");
+  strcat(path,itoa(i,part_str));
+  printf("path is %s\n",path);
+  if(access(path,F_OK) == -1){
+  printf("%d file part not present\n",i);
+  }
+  else{
+  part[j] = i;
+  j++;
+  }
+  }
+  fprintf(stdout,"*******check done*****\n");
+  for(int k =0;k<2;k++)
+  {
+    fprintf(stdout,"%d\t",part[k]);
+  }
+  fprintf(stdout,"*******sent*****\n");
+  itoa(part[0],part_str);
+  strcat(send_data,part_str);
+  itoa(part[1],part_str);
+  strcat(send_data,part_str);
+  fprintf(stdout,"%s",send_data);
+  if(send(sockfd,send_data,3,0) == -1)
+  {
+    perror("error sending file part numbers");
+    exit(1);
+  }
+
+}
+
 void client_respond(int n)
 {
     int rcvd = 0;
@@ -227,6 +275,8 @@ void client_respond(int n)
     char* filename = malloc(20);
     char* size = malloc(7);
 		fileinfo_t fileinfo;
+    while(1)
+    {
     rcvd=recv(nsockfd[n],command, 10, 0);
     if (rcvd<0)    // receive error
       fprintf(stdout,("recv() error\n"));
@@ -241,8 +291,15 @@ void client_respond(int n)
                 printf("with filename is %s\n",fileinfo.filename);
 								strncpy(filename,fileinfo.filename,fileinfo.name_size);
                 recv_file(nsockfd[n],filename);
+                break;
+      case GET:
+                rcvd = recv(nsockfd[n],&fileinfo,sizeof(fileinfo),0);
+                printf("filename is %s\n",fileinfo.filename);
+                strncpy(filename,fileinfo.filename,fileinfo.name_size);
+                check_fileinfo(nsockfd[n],filename);
 
     }
+  }
 }
 
 

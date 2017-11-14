@@ -448,7 +448,31 @@ int decision_md5(char* filename)
    printf("%d",part_to_send[i]);
   }
 }
-
+void recv_file_part()
+{
+  int fr_block_sz = 0;
+  char *file_part =  malloc(3);
+  uint8_t file_part_info[4][2];
+  for(int i = 0;i<4;i++)
+  {
+    fprintf(stdout,"*****waiting for parts\n");
+    while((fr_block_sz = recv(sockfd[i],file_part,3,0)) > 0)
+    {
+      fprintf(stdout,"%s parts are present\n",file_part);
+      file_part_info[i][0] = *file_part;
+      file_part_info[i][1] = *(file_part+1);
+      break;
+    }
+  }
+  for(int i = 0;i<4;i++ )
+  {
+     for (int j = 0;j< 2; j++)
+     {
+      printf("%d\t",file_part_info[i][j]);
+     }
+     printf("\n" );
+  }
+}
 int main(int argc, char *argv[])
 {
 	/* Variable Declarations*/
@@ -500,20 +524,22 @@ int main(int argc, char *argv[])
               send_part_file(4);
               break;
      case GET:
-
-              for(int i =0;i<4;i++)
+              for(int i = 0;i<4;i++)
               {
               if (send(sockfd[i], "get",strlen("get"),0) == -1){
                   perror("recieve");
                   exit (1);
               }
+              }
               printf("Sent the get command\n");
               printf("Enter the file name\n");
               scanf("%s",filename);
+              for(int i = 0;i<4;i++)
+              {
               send_fileinfo(filename, i);
               }
-              recv_file(filename);
-              break;*/
+              recv_file_part();
+              break;
 
 
 
