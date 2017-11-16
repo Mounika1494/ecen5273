@@ -267,6 +267,96 @@ void check_fileinfo(int sockfd,char* filename)
 
 }
 
+int get_filesize(char *filename)
+{
+      FILE* fp = NULL;
+      size_t size = 0;
+      char* size_str = malloc(5);
+      fp = fopen(filename,"rb+");
+      if(fp == NULL)
+      {
+      printf("file can't be opened\n");
+      return 0;
+      }
+      //get its size
+      fseek(fp, 0, SEEK_END);
+      size = ftell(fp);
+      rewind (fp);
+			fclose(fp);
+      printf("Size of the file is %lu\n",size);
+      return size;
+}
+
+void send_file(int sockfd,int part,char *filename)
+{
+  char* path = malloc(50);
+  struct stat st = {0};
+  int fs_block_sz = 0;
+  char *size_char = malloc(10);
+  char* part_str = malloc(2);
+  packet_t packet;
+  size_t size;
+  int size_sent = 0;
+  FILE* fp = NULL;
+
+  itoa(part,part_str);
+  strcat(path,server_folder);
+  if(stat(path,&st) == -1){
+   exit(1);
+  }
+  strcat(path,"/");
+  strcat(path,"Mounika");
+  if(stat(path,&st) == -1){
+    exit(1);
+  }
+  strcat(path,"/");
+  strcat(path,".");
+  strcat(path,filename);
+  strcat(path,".");
+  strcat(path,part_str);
+  size = get_filesize(path);
+
+  fp = fopen(path, "r");
+  while((fs_block_sz = fread(packet.data, sizeof(char), LENGTH, fp)) > 0)
+  {
+    packet.index = part;
+    packet.size_data = fs_block_sz;
+    strcpy(packet.filesize ,itoa(size,size_char));
+    fprintf(stdout,"total filesize:%s packet_index:%d size read:%d %lu\n"
+        ,packet.filesize,packet.index,packet.size_data,sizeof(packet));
+    if(send(sockfd,&packet,sizeof(packet), 0) < 0)
+    {
+        fprintf(stderr, "ERROR: Failed to send file (errno = %d)\n", errno);
+        break;
+    }
+    size_sent = size_sent + fs_block_sz;
+    printf("size of this part :%lu and sent is %d\n",size,size_sent);
+    if(size_sent >= size)
+    {
+      fprintf(stdout, "Part:%lu completed\n",size);
+      break;
+    }
+    for(int i =0;i<1000000;i++);
+    bzero(&packet,sizeof(packet));
+  }
+  fclose(fp);
+  size_sent = 0;
+  fprintf(stdout, "Completed Sending the part: %d\n",part);
+}
+
+void recv_which_part(int sockfd,char *filename)
+{
+  int part;
+  int rcvd = 0;
+  rcvd=recv(sockfd,&part,sizeof(part), 0);
+  if (rcvd<0)    // receive error
+    fprintf(stdout,("recv() error\n"));
+/*  else if (rcvd==0)    // receive socket closed
+    fprintf(stdout,"Client disconnected upexpectedly.\n");*/
+  send_file(sockfd,part,filename);
+}
+
+
 void client_respond(int n)
 {
     int rcvd = 0;
@@ -297,6 +387,7 @@ void client_respond(int n)
                 printf("filename is %s\n",fileinfo.filename);
                 strncpy(filename,fileinfo.filename,fileinfo.name_size);
                 check_fileinfo(nsockfd[n],filename);
+                recv_which_part(nsockfd[n],filename);
 
     }
   }

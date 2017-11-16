@@ -40,6 +40,7 @@ int sockfd[4];
 int size_each[4];
 int part_to_send[8];
 packet_t packet;
+uint8_t file_part_info[4][2];
 void error(const char *msg)
 {
 	perror(msg);
@@ -270,7 +271,7 @@ void computeMd5sum(char *filename, char md5sum[100])  {
     FILE *f = popen(systemmd5Cmd, "r");
     while (fgets(md5sum, 100, f) != NULL) {
 	  strtok(md5sum,"  \t\n");
-    printf( "%s %d\n", md5sum, strlen(md5sum) );
+    printf( "%s %lu\n", md5sum, strlen(md5sum) );
     }
     pclose(f);
 }
@@ -448,11 +449,55 @@ int decision_md5(char* filename)
    printf("%d",part_to_send[i]);
   }
 }
+void recv_file()
+{
+  int fr_block_sz = 0;
+  size_t part_size = 0;
+  char *file_part =  malloc(3);
+  int index = 0;
+  FILE* fr = NULL;
+  size_t size = 0;
+  int first_time = 1;
+  for(int i = 0;i<4;i++)
+  {
+    size = 0;
+    fprintf(stdout,"*****waiting for parts\n");
+    while((fr_block_sz = recv(sockfd[i],&packet,sizeof(packet),0)) > 0)
+    {
+      index = packet.index;
+      part_size = atoi(packet.filesize);
+      if(first_time == 1)
+      {
+        fr = fopen(itoa(index,file_part),"w");
+        first_time = 0;
+      }
+      if(fr == NULL)
+        printf("File %s Cannot be opened file on server.\n", file_part);
+      int write_sz = fwrite(packet.data, sizeof(char),packet.size_data, fr);
+      if(write_sz < packet.size_data)
+        {
+            error("File write failed on server.\n");
+        }
+      size = size + packet.size_data;
+      printf("part:%d size %lu bytes recieved %lu\n",index,part_size,size);
+      part_size = atoi(packet.filesize);
+      if(size == part_size)
+      {
+        printf("Done bytes recieved %lu\n",size);
+        break;
+      }
+      bzero(&packet,sizeof(packet));
+    }
+    printf("%d part recieved from %d server\n",index,i);
+    fclose(fr);
+  }
+  printf("recieved everything from server\n");
+}
+
 void recv_file_part()
 {
   int fr_block_sz = 0;
   char *file_part =  malloc(3);
-  uint8_t file_part_info[4][2];
   for(int i = 0;i<4;i++)
   {
     fprintf(stdout,"*****waiting for parts\n");
@@ -473,6 +518,40 @@ void recv_file_part()
      printf("\n" );
   }
 }
+void ask_file_part()
+{
+  printf("In sending the request for a file part\n");
+  char *part = malloc(2);
+  int found = 0;
+  for(int j = 1;j<=4;j++)//part
+  {
+    found = 0;
+    printf("searching for %d\n",j);
+    for(int k = j-1;k<4;k++)//server
+    {
+      for(int i = 0;i<2;i++)//part in server
+      {
+        printf("%d\n",file_part_info[k][i]);
+        if(file_part_info[k][i] == j+48)
+        {
+          if(send(sockfd[k],&j,sizeof(int),0)==-1)
+          {
+            perror("error sending file part numbers\n");
+            exit(1);
+          }
+          printf("Requesting %d from %d server",j,k);
+          found = 1;
+          break;
+        }
+      }
+      if (found == 1)
+      {
+        break;
+      }
+    }
+  }
+}
+
 int main(int argc, char *argv[])
 {
 	/* Variable Declarations*/
@@ -539,6 +618,8 @@ int main(int argc, char *argv[])
               send_fileinfo(filename, i);
               }
               recv_file_part();
+              ask_file_part();
+              recv_file();
               break;
 
 
