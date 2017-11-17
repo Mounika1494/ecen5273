@@ -366,8 +366,8 @@ void client_respond(int n)
     char* filename = malloc(20);
     char* size = malloc(7);
 		fileinfo_t fileinfo;
-    while(1)
-    {
+    //while(1)
+    //{
     rcvd=recv(nsockfd[n],command, 10, 0);
     if (rcvd<0)    // receive error
       fprintf(stdout,("recv() error\n"));
@@ -390,9 +390,10 @@ void client_respond(int n)
                 strncpy(filename,fileinfo.filename,fileinfo.name_size);
                 check_fileinfo(nsockfd[n],filename);
                 recv_which_part(nsockfd[n],filename);
+                break;
 
     }
-  }
+  //}
 }
 
 

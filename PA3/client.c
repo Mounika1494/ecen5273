@@ -276,66 +276,6 @@ void computeMd5sum(char *filename, char md5sum[100])  {
     pclose(f);
 }
 
-/*int recv_file(char* filename)
-{
-  struct stat st = {0};
-	/*Receive File from Client */
-/*  char *path = malloc(50);
-  char *part_str = malloc(2);
-  int first_time = 1;
-  FILE* fr = NULL;
-	uint64_t size =0;
-	int part = 1;
-
-	int fr_block_sz = 0;
-	packet_t packet;
-	int part_size = 0;
-	int file_size = 0;
-
-  while(slot<3)
-  {
-		bzero(&packet,sizeof(packet));
-		while((fr_block_sz = recv(sockfd[slot], &packet, sizeof(packet), 0)) > 0)
-		{
-      part = packet.index;
-      itoa(packet.index,part_str);
-      if(fr == NULL)
-        printf("File %s Cannot be opened file on server.\n", filename);
-			fprintf(stdout,"part size:%s index: %d size:%d\n",packet.filesize,packet.index,packet.size_data);
-			int write_sz = fwrite(packet.data, sizeof(char),packet.size_data, fr);
-			if(write_sz < packet.size_data)
-				{
-						error("File write failed on server.\n");
-				}
-			size = size + packet.size_data;
-			printf("part:%d bytes recieved %lu\n",part,size);
-			part_size = atoi(packet.filesize);
-			if(size == part_size)
-			{
-				printf("Done bytes recieved %lu\n",size);
-				break;
-			}
-			bzero(&packet,sizeof(packet));
-		}
-		printf("%d.part completed size:%lu \n",part,size);
-		bzero(&packet,sizeof(packet));
-		if(fr_block_sz < 0)
-			{
-					if (errno == EAGAIN)
-					{
-								printf("recv() timed out.\n");
-					}
-					else
-					{
-							fprintf(stderr, "recv() failed due to errno = %d\n", errno);
-							exit(1);
-					}
-				}
-		printf("Ok received from client!\n");
-		fclose(fr);
-  }
-}*/
-
 /****************************************************************
 *@Description: Check the user input if it is valid
 *
@@ -512,17 +452,21 @@ void recv_file_part()
      }
      printf("\n" );
   }
+  //while(1);
 }
 void ask_file_part()
 {
   printf("In sending the request for a file part\n");
   char *part = malloc(2);
   int found = 0;
+  int flag = 0;
   for(int j = 1;j<=4;j++)//part
   {
     found = 0;
     printf("searching for %d\n",j);
-    for(int k = j-1;k<4;k++)//server
+    int k = j-1;
+    //for(int k = j-1;k<4;k++)//server
+    while(k<4 && k >= 0)
     {
       for(int i = 0;i<2;i++)//part in server
       {
@@ -543,6 +487,19 @@ void ask_file_part()
       {
         recv_file(sockfd[k]);
         break;
+      }
+      if(k == 3)
+      {
+        flag = 1;
+        k--;
+        printf("did'nt find so looping back\n");
+      }
+      else if(k<3 && flag == 0)
+      k++;
+      else if(k<3 && flag == 1)
+      {
+      k = 0;
+      flag = 0;
       }
     }
     fprintf(stdout,"*************recieved everything****************\n");
