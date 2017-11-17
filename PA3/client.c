@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <string.h>
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <netinet/in.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
@@ -11,6 +12,7 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <sys/mman.h>
 
 #define LENGTH 512
@@ -22,10 +24,16 @@ typedef struct p1 {
       char partsize[10];
       char data[512+1];
       }packet_t;
+
 typedef struct p2 {
      uint8_t name_size;
      char filename[255];
 }fileinfo_t;
+
+typedef struct p3 {
+  char user_name[30];
+  char password[20];
+}userinfo_t;
 /***********commands******/
 typedef enum
 {
@@ -46,7 +54,17 @@ void error(const char *msg)
 	perror(msg);
 	exit(1);
 }
-
+//get size of the file
+int get_size(int file_desc)
+{
+  struct stat file_stat;
+  if(fstat(file_desc, &file_stat) == -1)
+  {
+    printf("error in reading the file stats\n");
+    return -1;
+  }
+  return (int)file_stat.st_size;
+}
 int get_filesize(char *filename)
 {
       FILE* fp = NULL;
@@ -491,7 +509,7 @@ void ask_file_part()
       if(k == 3)
       {
         flag = 1;
-        k--;
+        k = 0;
         printf("did'nt find so looping back\n");
       }
       else if(k<3 && flag == 0)
@@ -558,13 +576,37 @@ void merge_files(char* filename)
   system("rm -f 0 1 2 3 4");
 }
 
+//get the information required from ws.conf file
+char* get_info(char *search_string)
+{
+ int fd;
+ char filename[] = "dfc.conf";
+ char buffer[4000];
+ char *found;
+ char *token;
+ fd = open("dfc.conf",O_RDONLY);
+ if(fd == -1)
+ printf("unable to open configuration file\n");
+ read(fd,buffer,get_size(fd));
+ if((found = strstr(buffer,search_string)) != NULL)
+ {
+ token = strtok(found," \t\n");
+ token = strtok(NULL," \t\n");
+ }
+ close(fd);
+ printf("search_string is %s value is %s",search_string,token);
+ return token;
+}
+
 int main(int argc, char *argv[])
 {
 	/* Variable Declarations*/
   char revbuf[LENGTH];
+  char* pw_response = malloc(3);
 	char PORT[4][6];
   char* filename = malloc(10);
   int option;
+  userinfo_t userinfo;
 	//error handling
 	if (argc != 5) {
 			fprintf(stderr,"usage: client portno\n");
@@ -590,17 +632,29 @@ int main(int argc, char *argv[])
     switch(option)
     {
       case PUT:
+              strcpy(userinfo.user_name,get_info("Username"));
+              strcpy(userinfo.password,get_info("Password"));
+              printf("Validating the details..\n");
               for(int i =0;i<4;i++)
               {
-              if (send(sockfd[i], "put",strlen("put"),0) == -1){
+              if (send(sockfd[i], &userinfo,sizeof(userinfo),0) == -1){
                   perror("send");
                   exit (1);
               }
+              recv(sockfd[i], pw_response,strlen("Ok"),0);
+              if(strcmp(pw_response,"Ok") == 0);
+                {
+                  printf("success\n");
+                  if (send(sockfd[i], "put",strlen("put"),0) == -1){
+                      perror("send");
+                      exit (1);
+                    }
               printf("Sent the put command\n");
               printf("Enter the file name\n");
               scanf("%s",filename);
               send_fileinfo(filename, i);
               }
+            }
               decision_md5(filename);
               send_file(filename);
               send_part_file(1);

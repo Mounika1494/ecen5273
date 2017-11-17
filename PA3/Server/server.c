@@ -4,6 +4,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <fcntl.h>
 #include <netinet/in.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
@@ -29,6 +30,11 @@ typedef struct p2 {
      uint8_t name_size;
      char filename[255];
 }fileinfo_t;
+
+typedef struct p3 {
+  char user_name[30];
+  char password[20];
+}userinfo_t;
 /***********commands******/
 typedef enum
 {
@@ -262,7 +268,7 @@ void check_fileinfo(int sockfd,char* filename)
   if(send(sockfd,send_data,3,0) == -1)
   {
     perror("error sending file part numbers");
-    exit(1);
+    //exit(1);
   }
 
 }
@@ -357,6 +363,40 @@ else if (rcvd==0)    // receive socket closed
   send_file(sockfd,part,filename);
 }
 
+//get size of the file
+int get_size(int file_desc)
+{
+  struct stat file_stat;
+  if(fstat(file_desc, &file_stat) == -1)
+  {
+    printf("error in reading the file stats\n");
+    return -1;
+  }
+  return (int)file_stat.st_size;
+}
+
+//get the information required from ws.conf file
+char* get_info(char *search_string)
+{
+ int fd;
+ char filename[] = "dfc.conf";
+ char buffer[4000];
+ char *found;
+ char *token;
+ fd = open("../dfc.conf",O_RDONLY);
+ if(fd == -1)
+ printf("unable to open configuration file\n");
+ read(fd,buffer,get_size(fd));
+ if((found = strstr(buffer,search_string)) != NULL)
+ {
+ token = strtok(found," \t\n");
+ token = strtok(NULL," \t\n");
+ }
+ close(fd);
+ printf("search_string is %s value is %s",search_string,token);
+ return token;
+}
+
 
 void client_respond(int n)
 {
@@ -366,8 +406,16 @@ void client_respond(int n)
     char* filename = malloc(20);
     char* size = malloc(7);
 		fileinfo_t fileinfo;
-    //while(1)
-    //{
+    userinfo_t userinfo;
+    while(1)
+    {
+      rcvd=recv(nsockfd[n],&userinfo,sizeof(userinfo), 0);
+      printf("with username is %s and password is %s\n",userinfo.user_name,userinfo.password);
+      if(strcmp(userinfo.user_name,get_info("Username")) == 0){
+      if(strcmp(userinfo.password,get_info("Password")) == 0){
+      send(nsockfd[n],"Ok",3,0);
+      }
+      }
     rcvd=recv(nsockfd[n],command, 10, 0);
     if (rcvd<0)    // receive error
       fprintf(stdout,("recv() error\n"));
