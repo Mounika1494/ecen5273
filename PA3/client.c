@@ -449,7 +449,7 @@ int decision_md5(char* filename)
    printf("%d",part_to_send[i]);
   }
 }
-void recv_file()
+void recv_file(int psockfd)
 {
   int fr_block_sz = 0;
   size_t part_size = 0;
@@ -458,19 +458,16 @@ void recv_file()
   FILE* fr = NULL;
   size_t size = 0;
   int first_time = 1;
-  for(int i = 0;i<4;i++)
-  {
-    size = 0;
-    fprintf(stdout,"*****waiting for parts\n");
-    while((fr_block_sz = recv(sockfd[i],&packet,sizeof(packet),0)) > 0)
+    fprintf(stdout,"\n*****waiting for parts\n");
+    while((fr_block_sz = recv(psockfd,&packet,sizeof(packet),0)) > 0)
     {
       index = packet.index;
       part_size = atoi(packet.filesize);
       if(first_time == 1)
       {
         fr = fopen(itoa(index,file_part),"w");
-        first_time = 0;
       }
+      first_time = 0;
       if(fr == NULL)
         printf("File %s Cannot be opened file on server.\n", file_part);
       int write_sz = fwrite(packet.data, sizeof(char),packet.size_data, fr);
@@ -488,10 +485,8 @@ void recv_file()
       }
       bzero(&packet,sizeof(packet));
     }
-    printf("%d part recieved from %d server\n",index,i);
+    printf("%d part recieved from %d server\n",index,psockfd);
     fclose(fr);
-  }
-  printf("recieved everything from server\n");
 }
 
 void recv_file_part()
@@ -546,10 +541,64 @@ void ask_file_part()
       }
       if (found == 1)
       {
+        recv_file(sockfd[k]);
         break;
       }
     }
+    fprintf(stdout,"*************recieved everything****************\n");
   }
+}
+
+void merge_files(char* filename)
+{
+  FILE *fs1, *fs2, *fs3, *fs4 ,*ft;
+  char ch,read_buf[512+1];
+  fs1 = fopen("1","r");
+  fs2 = fopen("2","r");
+  fs3 = fopen("3","r");
+  fs4 = fopen("4","r");
+  int fs_block_sz = 0;
+  if( fs1 == NULL || fs2 == NULL ||fs3 == NULL || fs4 == NULL )
+  {
+     perror("Error ");
+  }
+
+  ft = fopen(filename,"w");
+
+  if( ft == NULL )
+  {
+     perror("Error ");
+  }
+
+  while((fs_block_sz = fread(read_buf, sizeof(char), LENGTH, fs1)) > 0)
+  {
+     fwrite(read_buf, sizeof(char), LENGTH, ft);
+     bzero(read_buf,512);
+  }
+  while((fs_block_sz = fread(read_buf, sizeof(char), LENGTH, fs2)) > 0)
+  {
+     fwrite(read_buf, sizeof(char), LENGTH, ft);
+     bzero(read_buf,512);
+  }
+  while((fs_block_sz = fread(read_buf, sizeof(char), LENGTH, fs3)) > 0)
+  {
+     fwrite(read_buf, sizeof(char), LENGTH, ft);
+     bzero(read_buf,512);
+  }
+  while((fs_block_sz = fread(read_buf, sizeof(char), LENGTH, fs4)) > 0)
+  {
+     fwrite(read_buf, sizeof(char), LENGTH, ft);
+     bzero(read_buf,512);
+  }
+
+  printf("4 files were merged into %s file successfully.\n",filename);
+
+  fclose(fs1);
+  fclose(fs2);
+  fclose(fs3);
+  fclose(fs4);
+  fclose(ft);
+  system("rm -f 0 1 2 3 4");
 }
 
 int main(int argc, char *argv[])
@@ -619,7 +668,7 @@ int main(int argc, char *argv[])
               }
               recv_file_part();
               ask_file_part();
-              recv_file();
+              merge_files(filename);
               break;
 
 

@@ -102,7 +102,7 @@ int recv_file(int sockfd,char* filename)
         strcat(path,".");
         strcat(path,part_str);
         fr = fopen(path, "w");
-      }
+     }
       first_time = 0;
       if(fr == NULL)
         printf("File %s Cannot be opened file on server.\n", filename);
@@ -315,7 +315,7 @@ void send_file(int sockfd,int part,char *filename)
   strcat(path,".");
   strcat(path,part_str);
   size = get_filesize(path);
-
+  fprintf(stdout, "part sending is %s\n",path );
   fp = fopen(path, "r");
   while((fs_block_sz = fread(packet.data, sizeof(char), LENGTH, fp)) > 0)
   {
@@ -351,8 +351,9 @@ void recv_which_part(int sockfd,char *filename)
   rcvd=recv(sockfd,&part,sizeof(part), 0);
   if (rcvd<0)    // receive error
     fprintf(stdout,("recv() error\n"));
-/*  else if (rcvd==0)    // receive socket closed
-    fprintf(stdout,"Client disconnected upexpectedly.\n");*/
+else if (rcvd==0)    // receive socket closed
+    fprintf(stdout,"Client disconnected upexpectedly.\n");
+  fprintf(stdout, "%d part is asked from client\n",part );
   send_file(sockfd,part,filename);
 }
 
@@ -374,6 +375,7 @@ void client_respond(int n)
       fprintf(stdout,"Client disconnected upexpectedly.\n");
     option  = command_decode(command);
     bzero(command,10);
+    bzero(filename,20);
     switch(option)
     {
       case PUT:
