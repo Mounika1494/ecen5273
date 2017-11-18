@@ -270,6 +270,7 @@ void check_fileinfo(int sockfd,char* filename)
     perror("error sending file part numbers");
     //exit(1);
   }
+  //for(int j = 0;j<10000;j++);
 
 }
 
@@ -402,18 +403,21 @@ void client_respond(int n)
 {
     int rcvd = 0;
     int option = 0;
+    int flag = 0;
     char* command = malloc(10);
     char* filename = malloc(20);
     char* size = malloc(7);
 		fileinfo_t fileinfo;
     userinfo_t userinfo;
-    while(1)
-    {
+    //while(1)
+    //{
       rcvd=recv(nsockfd[n],&userinfo,sizeof(userinfo), 0);
       printf("with username is %s and password is %s\n",userinfo.user_name,userinfo.password);
       if(strcmp(userinfo.user_name,get_info("Username")) == 0){
       if(strcmp(userinfo.password,get_info("Password")) == 0){
-      send(nsockfd[n],"Ok",3,0);
+        printf("socket is %d\n",nsockfd[n]);
+      //send(nsockfd[n],"Ok",3,0);
+      flag = 1;
       }
       }
     rcvd=recv(nsockfd[n],command, 10, 0);
@@ -427,19 +431,25 @@ void client_respond(int n)
     switch(option)
     {
       case PUT:
+                if(flag == 1)
+                {
                 rcvd=recv(nsockfd[n],&fileinfo,sizeof(fileinfo), 0);
                 printf("with filename is %s\n",fileinfo.filename);
 								strncpy(filename,fileinfo.filename,fileinfo.name_size);
                 recv_file(nsockfd[n],filename);
                 break;
+                }
       case GET:
+                if(flag ==1 )
+                {
                 rcvd = recv(nsockfd[n],&fileinfo,sizeof(fileinfo),0);
                 printf("filename is %s\n",fileinfo.filename);
                 strncpy(filename,fileinfo.filename,fileinfo.name_size);
                 check_fileinfo(nsockfd[n],filename);
+                printf("socket is %d\n",nsockfd[n]);
                 recv_which_part(nsockfd[n],filename);
                 break;
-
+                }
     }
   //}
 }

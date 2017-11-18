@@ -447,21 +447,22 @@ void recv_file(int psockfd)
     fclose(fr);
 }
 
-void recv_file_part()
+void recv_file_part(int i)
 {
   int fr_block_sz = 0;
   char *file_part =  malloc(3);
-  for(int i = 0;i<4;i++)
-  {
+  //for(int i = 0;i<4;i++)
+  //{
     fprintf(stdout,"*****waiting for parts\n");
-    while((fr_block_sz = recv(sockfd[i],file_part,3,0)) > 0)
+    while((fr_block_sz = recv(sockfd[i],file_part,3,0)) > 1)
     {
       fprintf(stdout,"%s parts are present\n",file_part);
       file_part_info[i][0] = *file_part;
       file_part_info[i][1] = *(file_part+1);
       break;
     }
-  }
+  //}
+  //while(1);
   for(int i = 0;i<4;i++ )
   {
      for (int j = 0;j< 2; j++)
@@ -606,6 +607,7 @@ int main(int argc, char *argv[])
 	char PORT[4][6];
   char* filename = malloc(10);
   int option;
+  int flag = 0;
   userinfo_t userinfo;
 	//error handling
 	if (argc != 5) {
@@ -622,6 +624,23 @@ int main(int argc, char *argv[])
   connect_server(atoi(PORT[3]),3);
   while (1)
   {
+    strcpy(userinfo.user_name,get_info("Username"));
+    strcpy(userinfo.password,get_info("Password"));
+    printf("Validating the details..\n");
+    for(int i =0;i<4;i++)
+    {
+    if (send(sockfd[i], &userinfo,sizeof(userinfo),0) == -1){
+        perror("send");
+        exit (1);
+    }
+    printf("socket is %d\n",sockfd[i]);
+    //recv(sockfd[i], pw_response,strlen("Ok"),0);
+    //if(strcmp(pw_response,"Ok") == 0);
+      //{
+        //printf("success\n");
+        flag = 1;
+      //}
+    }
     option = user_command();
     while(!option)
     {
@@ -632,7 +651,7 @@ int main(int argc, char *argv[])
     switch(option)
     {
       case PUT:
-              strcpy(userinfo.user_name,get_info("Username"));
+              /*strcpy(userinfo.user_name,get_info("Username"));
               strcpy(userinfo.password,get_info("Password"));
               printf("Validating the details..\n");
               for(int i =0;i<4;i++)
@@ -644,7 +663,11 @@ int main(int argc, char *argv[])
               recv(sockfd[i], pw_response,strlen("Ok"),0);
               if(strcmp(pw_response,"Ok") == 0);
                 {
-                  printf("success\n");
+                  printf("success\n");*/
+                if(flag == 1)
+                {
+                  for(int i = 0;i<4;i++)
+                  {
                   if (send(sockfd[i], "put",strlen("put"),0) == -1){
                       perror("send");
                       exit (1);
@@ -654,32 +677,42 @@ int main(int argc, char *argv[])
               scanf("%s",filename);
               send_fileinfo(filename, i);
               }
-            }
+            //}
               decision_md5(filename);
               send_file(filename);
               send_part_file(1);
               send_part_file(2);
               send_part_file(3);
               send_part_file(4);
+            }
               break;
      case GET:
+              if(flag == 1)
+              {
               for(int i = 0;i<4;i++)
               {
               if (send(sockfd[i], "get",strlen("get"),0) == -1){
                   perror("recieve");
                   exit (1);
               }
-              }
               printf("Sent the get command\n");
               printf("Enter the file name\n");
               scanf("%s",filename);
-              for(int i = 0;i<4;i++)
+              send_fileinfo(filename, i);
+              printf("socket is %d\n",sockfd[i]);
+              recv_file_part(i);
+              }
+              //printf("Sent the get command\n");
+              //printf("Enter the file name\n");
+              //scanf("%s",filename);
+              /*for(int i = 0;i<4;i++)
               {
               send_fileinfo(filename, i);
-              }
-              recv_file_part();
+            }*/
+              //recv_file_part();
               ask_file_part();
               merge_files(filename);
+             }
               break;
 
 
