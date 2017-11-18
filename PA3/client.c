@@ -343,7 +343,9 @@ void send_fileinfo(char* filename,char* foldername,int n)
 {
   fileinfo_t fileinfo;
   fileinfo.name_size = strlen(filename);
+  if(filename != NULL)
   strncpy(fileinfo.filename,filename,fileinfo.name_size);
+  if(foldername != NULL)
   strncpy(fileinfo.foldername,foldername,strlen(foldername));
   if (send(sockfd[n], &fileinfo,sizeof(fileinfo),0) == -1){
         perror("send");
@@ -713,6 +715,89 @@ int main(int argc, char *argv[])
               }
              }
               break;
+    case LIST_FILES:
+
+            if(flag == 1)
+            {
+              FILE *fp = NULL;
+              char *rec_buf = malloc(512);
+              fp = fopen("completefile.txt","w");
+              for(int i = 0;i<4;i++)
+              {
+                bzero(rec_buf,512);
+                if (send(sockfd[i], "ls",strlen("ls"),0) == -1){
+                  perror("recieve");
+                  exit (1);
+              }
+              printf("Sent the list command\n");
+              printf("Enter the folder name\n");
+              scanf("%s",foldername);
+              send_fileinfo(foldername,foldername, i);
+              recv(sockfd[i],rec_buf,512,0);
+              fwrite(rec_buf,sizeof(char),strlen(rec_buf),fp);
+            }
+            fclose(fp);
+          fp = fopen("completefile.txt","r");
+          bzero(rec_buf,512);
+
+
+          char* prev_name = malloc(10);
+          char* searchpath = malloc(30);
+          char* part_str =  malloc(2);
+          char* dup_recv = malloc(512);
+          int flag = 0;
+          while(fread(rec_buf,sizeof(char),LENGTH,fp) > 0)
+          {
+            memcpy(dup_recv,rec_buf,512);
+            char *token = strtok(rec_buf,"\n");
+            while(token != NULL)
+            {
+              printf("token:%s\n",token);
+              if(strcmp(token,"files.txt")== 0)
+              break;
+              char *nam = strstr(token,".");
+
+              printf("nam:%s\n",nam);
+              char *name = malloc(10);
+              strncpy(name,(nam+1),strlen(nam)-3);
+              printf("name:%s\n",name);
+              //while(1);
+              if(strcmp(name,prev_name) != 0)
+              {
+                for(int i = 1;i<= 4;i++)
+                {
+                  bzero(searchpath,30);
+                  strcat(searchpath,".");
+                  strcat(searchpath,name);
+                  strcat(searchpath,".");
+                  strcat(searchpath,itoa(i,part_str));
+                  printf("searching for %s\n",searchpath);
+                  if(strstr(dup_recv,searchpath) != NULL)
+                  {
+                    printf("found %d\n",i);
+                    flag = 1;
+                  }
+                  else
+                  flag = 0;
+                }
+                if(flag == 1)
+                {
+                  printf("*********************\n\n");
+                  printf("\n\nLIST of FILES in the FOLDER are\n");
+                  printf("%s\n\n",name);
+                  strcpy(prev_name,name);
+                  printf("*********************\n\n");
+                }
+                else if(flag == 0)
+                printf("%s INCOMPLETE\n\n",name);
+          }
+
+          bzero(token,strlen(token));
+          token = strtok(NULL,"\n");
+        }
+        }
+        }
+          break;
 
 
 

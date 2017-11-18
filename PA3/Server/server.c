@@ -13,6 +13,7 @@
 #include <ctype.h>
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <dirent.h>
 
 #define BACKLOG 100000
 #define CONNMAX 1000
@@ -421,6 +422,7 @@ void client_respond(int n)
     char* filename = malloc(20);
     char* foldername = malloc(20);
     char* size = malloc(7);
+    char* ls_command = malloc(40);
 		fileinfo_t fileinfo;
     //userinfo_t userinfo;
     while(1)
@@ -454,21 +456,68 @@ void client_respond(int n)
                 rcvd=recv(nsockfd[n],&fileinfo,sizeof(fileinfo), 0);
                 printf("with filename is %s and foldername is %s\n",fileinfo.filename,fileinfo.foldername);
 								strncpy(filename,fileinfo.filename,fileinfo.name_size);
-                strncpy(foldername,fileinfo.filename,strlen(fileinfo.foldername));
+                strncpy(foldername,fileinfo.foldername,strlen(fileinfo.foldername));
                 recv_file(nsockfd[n],filename,foldername);
                 break;
                 }
+                break;
       case GET:
                 if(flag ==1 )
                 {
                 rcvd = recv(nsockfd[n],&fileinfo,sizeof(fileinfo),0);
                 printf("with filename is %s and foldername is %s\n",fileinfo.filename,fileinfo.foldername);
                 strncpy(filename,fileinfo.filename,fileinfo.name_size);
-                strncpy(foldername,fileinfo.filename,strlen(fileinfo.foldername));
+                strncpy(foldername,fileinfo.foldername,strlen(fileinfo.foldername));
                 check_fileinfo(nsockfd[n],filename,foldername);
                 printf("socket is %d\n",nsockfd[n]);
                 recv_which_part(nsockfd[n],filename,foldername);
                 break;
+                }
+                break;
+      case LIST_FILES:
+                if(flag == 1)
+                {
+                  FILE *fp = NULL;
+                  DIR *d;
+                  struct dirent *dir;
+                  int fs_block_sz = 0;
+                  char* send_buffer = malloc(512);
+                  bzero(&fileinfo,sizeof(fileinfo));
+                  rcvd = recv(nsockfd[n],&fileinfo,sizeof(fileinfo),0);
+                  printf("with filename is %s and foldername is %s\n",fileinfo.filename,fileinfo.foldername);
+                  strncpy(foldername,fileinfo.foldername,strlen(fileinfo.foldername));
+                  strcat(ls_command,server_folder);
+                  strcat(ls_command,"/");
+                  strcat(ls_command,userinfo.user_name);
+                  strcat(ls_command,"/");
+                  strcat(ls_command,foldername);
+                  d = opendir(ls_command);
+                  strcat(ls_command,"/files.txt");
+                  fp = fopen(ls_command,"w");
+                  if(d)
+                  {
+                    while((dir = readdir(d)) != NULL)
+                    {
+                      printf("%s\n",dir->d_name);
+                      if((strcmp(dir->d_name,"..") != 0) && (strcmp(dir->d_name,".")!=0))
+                      {
+                      strcat(dir->d_name,"\n");
+                      fwrite(dir->d_name,sizeof(char),strlen(dir->d_name),fp);
+                      }
+                    }
+                    closedir(d);
+                    fclose(fp);
+                  }
+                  fp = fopen(ls_command,"r");
+                  while(fs_block_sz = fread(send_buffer,sizeof(char),LENGTH,fp) > 0)
+                  {
+                    if(send(nsockfd[n],send_buffer,strlen(send_buffer), 0) < 0)
+                    {
+                        fprintf(stderr, "ERROR: Failed to send file (errno = %d)\n", errno);
+
+                    }
+                  }
+                  fprintf(stdout, "sent the files.txt\n");
                 }
     }
   }
