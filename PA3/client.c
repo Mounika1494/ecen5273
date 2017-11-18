@@ -27,6 +27,7 @@ typedef struct p1 {
 
 typedef struct p2 {
      uint8_t name_size;
+     char foldername[255];
      char filename[255];
 }fileinfo_t;
 
@@ -338,11 +339,12 @@ uint8_t user_command()
      }
      return op_selected;
 }
-void send_fileinfo(char* filename,int n)
+void send_fileinfo(char* filename,char* foldername,int n)
 {
   fileinfo_t fileinfo;
   fileinfo.name_size = strlen(filename);
   strncpy(fileinfo.filename,filename,fileinfo.name_size);
+  strncpy(fileinfo.foldername,foldername,strlen(foldername));
   if (send(sockfd[n], &fileinfo,sizeof(fileinfo),0) == -1){
         perror("send");
         exit (1);
@@ -604,6 +606,7 @@ int main(int argc, char *argv[])
   char* pw_response = malloc(3);
 	char PORT[4][6];
   char* filename = malloc(10);
+  char* foldername = malloc(10);
   int option;
   int flag = 0;
   userinfo_t userinfo;
@@ -667,7 +670,9 @@ int main(int argc, char *argv[])
                 printf("Sent the put command\n");
                 printf("Enter the file name\n");
                 scanf("%s",filename);
-                send_fileinfo(filename, i);
+                printf("Enter the folder name\n");
+                scanf("%s",foldername);
+                send_fileinfo(filename,foldername, i);
               }
 
               decision_md5(filename);
@@ -690,7 +695,9 @@ int main(int argc, char *argv[])
               printf("Sent the get command\n");
               printf("Enter the file name\n");
               scanf("%s",filename);
-              send_fileinfo(filename, i);
+              printf("Enter the folder name\n");
+              scanf("%s",foldername);
+              send_fileinfo(filename,foldername, i);
               printf("socket is %d\n",sockfd[i]);
               recv_file_part(i);
               }

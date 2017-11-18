@@ -28,6 +28,7 @@ typedef struct p1 {
 
 typedef struct p2 {
      uint8_t name_size;
+     char foldername[255];
      char filename[255];
 }fileinfo_t;
 
@@ -64,7 +65,7 @@ char* itoa(int num,char *str)
    return str;
 }
 
-int recv_file(int sockfd,char* filename)
+int recv_file(int sockfd,char* filename,char *foldername)
 {
   struct stat st = {0};
 	/*Receive File from Client */
@@ -99,6 +100,11 @@ int recv_file(int sockfd,char* filename)
         }
         strcat(path,"/");
         strcat(path,userinfo.user_name);
+        if(stat(path,&st) == -1){
+          mkdir(path,0700);
+        }
+        strcat(path,"/");
+        strcat(path,foldername);
         if(stat(path,&st) == -1){
           mkdir(path,0700);
         }
@@ -226,7 +232,7 @@ void startServer(char *port)
 
 }
 
-void check_fileinfo(int sockfd,char* filename)
+void check_fileinfo(int sockfd,char* filename,char* foldername)
 {
   int part[2];
   char *path = malloc(50);
@@ -240,6 +246,8 @@ void check_fileinfo(int sockfd,char* filename)
   strcat(path,server_folder);
   strcat(path,"/");
   strcat(path,userinfo.user_name);
+  strcat(path,"/");
+  strcat(path,foldername);
   strcat(path,"/");
   strcat(path,".");
   strcat(path,filename);
@@ -294,7 +302,7 @@ int get_filesize(char *filename)
       return size;
 }
 
-void send_file(int sockfd,int part,char *filename)
+void send_file(int sockfd,int part,char *filename,char * foldername)
 {
   char* path = malloc(50);
   struct stat st = {0};
@@ -313,6 +321,11 @@ void send_file(int sockfd,int part,char *filename)
   }
   strcat(path,"/");
   strcat(path,userinfo.user_name);
+  if(stat(path,&st) == -1){
+    exit(1);
+  }
+  strcat(path,"/");
+  strcat(path,foldername);
   if(stat(path,&st) == -1){
     exit(1);
   }
@@ -351,7 +364,7 @@ void send_file(int sockfd,int part,char *filename)
   fprintf(stdout, "Completed Sending the part: %d\n",part);
 }
 
-void recv_which_part(int sockfd,char *filename)
+void recv_which_part(int sockfd,char *filename,char* foldername)
 {
   int part;
   int rcvd = 0;
@@ -361,7 +374,7 @@ void recv_which_part(int sockfd,char *filename)
 else if (rcvd==0)    // receive socket closed
     fprintf(stdout,"Client disconnected upexpectedly.\n");
   fprintf(stdout, "%d part is asked from client\n",part );
-  send_file(sockfd,part,filename);
+  send_file(sockfd,part,filename,foldername);
 }
 
 //get size of the file
@@ -406,6 +419,7 @@ void client_respond(int n)
     int flag = 0;
     char* command = malloc(10);
     char* filename = malloc(20);
+    char* foldername = malloc(20);
     char* size = malloc(7);
 		fileinfo_t fileinfo;
     //userinfo_t userinfo;
@@ -431,26 +445,29 @@ void client_respond(int n)
     option  = command_decode(command);
     bzero(command,10);
     bzero(filename,20);
+    bzero(foldername,20);
     switch(option)
     {
       case PUT:
                 if(flag == 1)
                 {
                 rcvd=recv(nsockfd[n],&fileinfo,sizeof(fileinfo), 0);
-                printf("with filename is %s\n",fileinfo.filename);
+                printf("with filename is %s and foldername is %s\n",fileinfo.filename,fileinfo.foldername);
 								strncpy(filename,fileinfo.filename,fileinfo.name_size);
-                recv_file(nsockfd[n],filename);
+                strncpy(foldername,fileinfo.filename,strlen(fileinfo.foldername));
+                recv_file(nsockfd[n],filename,foldername);
                 break;
                 }
       case GET:
                 if(flag ==1 )
                 {
                 rcvd = recv(nsockfd[n],&fileinfo,sizeof(fileinfo),0);
-                printf("filename is %s\n",fileinfo.filename);
+                printf("with filename is %s and foldername is %s\n",fileinfo.filename,fileinfo.foldername);
                 strncpy(filename,fileinfo.filename,fileinfo.name_size);
-                check_fileinfo(nsockfd[n],filename);
+                strncpy(foldername,fileinfo.filename,strlen(fileinfo.foldername));
+                check_fileinfo(nsockfd[n],filename,foldername);
                 printf("socket is %d\n",nsockfd[n]);
-                recv_which_part(nsockfd[n],filename);
+                recv_which_part(nsockfd[n],filename,foldername);
                 break;
                 }
     }
