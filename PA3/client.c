@@ -635,11 +635,18 @@ int main(int argc, char *argv[])
     }
     printf("socket is %d\n",sockfd[i]);
     recv(sockfd[i], pw_response,3,0);
-    if(strcmp(pw_response,"Ok") == 0);
+    if(strcmp(pw_response,"Ok") == 0)
       {
         printf("success\n");
         flag = 1;
       }
+      else
+      flag = 0;
+    }
+    if(flag == 0)
+    {
+        printf("Invalid Username and Password\n");
+        break;
     }
     option = user_command();
     while(!option)

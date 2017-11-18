@@ -380,11 +380,11 @@ int get_size(int file_desc)
 char* get_info(char *search_string)
 {
  int fd;
- char filename[] = "dfc.conf";
+ char filename[] = "dfs.conf";
  char buffer[4000];
  char *found;
  char *token;
- fd = open("../dfc.conf",O_RDONLY);
+ fd = open("dfs.conf",O_RDONLY);
  if(fd == -1)
  printf("unable to open configuration file\n");
  read(fd,buffer,get_size(fd));
@@ -413,12 +413,17 @@ void client_respond(int n)
     {
       rcvd=recv(nsockfd[n],&userinfo,sizeof(userinfo), 0);
       printf("with username is %s and password is %s\n",userinfo.user_name,userinfo.password);
-      if(strcmp(userinfo.user_name,get_info("Username")) == 0){
-      if(strcmp(userinfo.password,get_info("Password")) == 0){
+      if(strcmp(userinfo.password,get_info(userinfo.user_name)) == 0){
+      //if(strcmp(userinfo.password,get_info("Password")) == 0){
         printf("socket is %d\n",nsockfd[n]);
         send(nsockfd[n],"Ok",3,0);
         flag = 1;
+      //}
       }
+      else
+      {
+        send(nsockfd[n],"Nk",3,0);
+        flag = 0;
       }
     rcvd=recv(nsockfd[n],command, 10, 0);
     if (rcvd<0)    // receive error
@@ -458,12 +463,8 @@ void client_respond(int n)
 int main (int argc, char *argv[])
 {
 	/* Defining Variables */
-//	int sockfd;
-	//int nsockfd;
 	int sin_size;
-//	struct sockaddr_in addr_local; /* client addr */
 	struct sockaddr_in addr_remote; /* server addr */
-//	char revbuf[LENGTH]; // Receiver buffer
 	int option = 0;
 	char PORT[6];
 	int rcvd = 0;
