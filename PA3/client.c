@@ -634,12 +634,12 @@ int main(int argc, char *argv[])
         exit (1);
     }
     printf("socket is %d\n",sockfd[i]);
-    //recv(sockfd[i], pw_response,strlen("Ok"),0);
-    //if(strcmp(pw_response,"Ok") == 0);
-      //{
-        //printf("success\n");
+    recv(sockfd[i], pw_response,3,0);
+    if(strcmp(pw_response,"Ok") == 0);
+      {
+        printf("success\n");
         flag = 1;
-      //}
+      }
     }
     option = user_command();
     while(!option)
@@ -651,19 +651,6 @@ int main(int argc, char *argv[])
     switch(option)
     {
       case PUT:
-              /*strcpy(userinfo.user_name,get_info("Username"));
-              strcpy(userinfo.password,get_info("Password"));
-              printf("Validating the details..\n");
-              for(int i =0;i<4;i++)
-              {
-              if (send(sockfd[i], &userinfo,sizeof(userinfo),0) == -1){
-                  perror("send");
-                  exit (1);
-              }
-              recv(sockfd[i], pw_response,strlen("Ok"),0);
-              if(strcmp(pw_response,"Ok") == 0);
-                {
-                  printf("success\n");*/
                 if(flag == 1)
                 {
                   for(int i = 0;i<4;i++)
@@ -672,12 +659,12 @@ int main(int argc, char *argv[])
                       perror("send");
                       exit (1);
                     }
-              printf("Sent the put command\n");
-              printf("Enter the file name\n");
-              scanf("%s",filename);
-              send_fileinfo(filename, i);
+                printf("Sent the put command\n");
+                printf("Enter the file name\n");
+                scanf("%s",filename);
+                send_fileinfo(filename, i);
               }
-            //}
+
               decision_md5(filename);
               send_file(filename);
               send_part_file(1);
@@ -702,14 +689,6 @@ int main(int argc, char *argv[])
               printf("socket is %d\n",sockfd[i]);
               recv_file_part(i);
               }
-              //printf("Sent the get command\n");
-              //printf("Enter the file name\n");
-              //scanf("%s",filename);
-              /*for(int i = 0;i<4;i++)
-              {
-              send_fileinfo(filename, i);
-            }*/
-              //recv_file_part();
               ask_file_part();
               merge_files(filename);
              }

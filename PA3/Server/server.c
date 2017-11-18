@@ -409,15 +409,15 @@ void client_respond(int n)
     char* size = malloc(7);
 		fileinfo_t fileinfo;
     userinfo_t userinfo;
-    //while(1)
-    //{
+    while(1)
+    {
       rcvd=recv(nsockfd[n],&userinfo,sizeof(userinfo), 0);
       printf("with username is %s and password is %s\n",userinfo.user_name,userinfo.password);
       if(strcmp(userinfo.user_name,get_info("Username")) == 0){
       if(strcmp(userinfo.password,get_info("Password")) == 0){
         printf("socket is %d\n",nsockfd[n]);
-      //send(nsockfd[n],"Ok",3,0);
-      flag = 1;
+        send(nsockfd[n],"Ok",3,0);
+        flag = 1;
       }
       }
     rcvd=recv(nsockfd[n],command, 10, 0);
@@ -451,7 +451,7 @@ void client_respond(int n)
                 break;
                 }
     }
-  //}
+  }
 }
 
 
