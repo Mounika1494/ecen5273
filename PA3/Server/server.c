@@ -46,7 +46,7 @@ typedef enum
 }commands;
 int nsockfd[1000],sockfd;
 char* server_folder;
-
+userinfo_t userinfo;
 
 void error(const char *msg)
 {
@@ -98,7 +98,7 @@ int recv_file(int sockfd,char* filename)
           mkdir(path,0700);
         }
         strcat(path,"/");
-        strcat(path,"Mounika");
+        strcat(path,userinfo.user_name);
         if(stat(path,&st) == -1){
           mkdir(path,0700);
         }
@@ -239,7 +239,7 @@ void check_fileinfo(int sockfd,char* filename)
   bzero(path,50);
   strcat(path,server_folder);
   strcat(path,"/");
-  strcat(path,"Mounika");
+  strcat(path,userinfo.user_name);
   strcat(path,"/");
   strcat(path,".");
   strcat(path,filename);
@@ -312,7 +312,7 @@ void send_file(int sockfd,int part,char *filename)
    exit(1);
   }
   strcat(path,"/");
-  strcat(path,"Mounika");
+  strcat(path,userinfo.user_name);
   if(stat(path,&st) == -1){
     exit(1);
   }
@@ -408,17 +408,15 @@ void client_respond(int n)
     char* filename = malloc(20);
     char* size = malloc(7);
 		fileinfo_t fileinfo;
-    userinfo_t userinfo;
+    //userinfo_t userinfo;
     while(1)
     {
       rcvd=recv(nsockfd[n],&userinfo,sizeof(userinfo), 0);
       printf("with username is %s and password is %s\n",userinfo.user_name,userinfo.password);
       if(strcmp(userinfo.password,get_info(userinfo.user_name)) == 0){
-      //if(strcmp(userinfo.password,get_info("Password")) == 0){
         printf("socket is %d\n",nsockfd[n]);
         send(nsockfd[n],"Ok",3,0);
         flag = 1;
-      //}
       }
       else
       {

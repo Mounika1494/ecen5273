@@ -451,8 +451,6 @@ void recv_file_part(int i)
 {
   int fr_block_sz = 0;
   char *file_part =  malloc(3);
-  //for(int i = 0;i<4;i++)
-  //{
     fprintf(stdout,"*****waiting for parts\n");
     while((fr_block_sz = recv(sockfd[i],file_part,3,0)) > 1)
     {
@@ -610,14 +608,14 @@ int main(int argc, char *argv[])
   int flag = 0;
   userinfo_t userinfo;
 	//error handling
-	if (argc != 5) {
-			fprintf(stderr,"usage: client portno\n");
+	if (argc != 1) {
+			fprintf(stderr,"usage: client \n");
 			exit(1);
 	}
-  strcpy(PORT[0],argv[1]);
-  strcpy(PORT[1],argv[2]);
-  strcpy(PORT[2],argv[3]);
-  strcpy(PORT[3],argv[4]);
+  strcpy(PORT[0],get_info("DFS1:127.0.0.1"));
+  strcpy(PORT[1],get_info("DFS2:127.0.0.1"));
+  strcpy(PORT[2],get_info("DFS3:127.0.0.1"));
+  strcpy(PORT[3],get_info("DFS4:127.0.0.1"));
   connect_server(atoi(PORT[0]),0);
   connect_server(atoi(PORT[1]),1);
   connect_server(atoi(PORT[2]),2);
@@ -698,6 +696,14 @@ int main(int argc, char *argv[])
               }
               ask_file_part();
               merge_files(filename);
+              for(int i = 0;i<4;i++ )
+              {
+                 for (int j = 0;j< 2; j++)
+                 {
+                   file_part_info[i][j] = 0;
+                 }
+                 printf("\n" );
+              }
              }
               break;
 
