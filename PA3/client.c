@@ -798,49 +798,20 @@ int main(int argc, char *argv[])
         }
         }
           break;
-
-
-
-	/* Receive File from Server
-	printf("[Client] Receiveing file from Server and saving it as final.txt...");
-	char* fr_name = "/home/netsys/ecen5273/PA3/apple_ex.png";
-	FILE *fr = fopen(fr_name, "a");
-	if(fr == NULL)
-		printf("File %s Cannot be opened.\n", fr_name);
-	else
-	{
-		bzero(revbuf, LENGTH);
-		int fr_block_sz = 0;
-	    while((fr_block_sz = recv(sockfd[0], revbuf, LENGTH, 0)) > 0)
-	    {
-			int write_sz = fwrite(revbuf, sizeof(char), fr_block_sz, fr);
-	        if(write_sz < fr_block_sz)
-			{
-	            error("File write failed.\n");
-	        }
-			bzero(revbuf, LENGTH);
-			if (fr_block_sz == 0 || fr_block_sz != 512)
-			{
-				break;
-			}
-		}
-		if(fr_block_sz < 0)
+   case EXIT:
+   for(int i = 0;i<4;i++)
+   {
+     if (send(sockfd[i], "exit",strlen("exit"),0) == -1){
+       perror("recieve");
+       exit (1);
+       }
+        for(int i = 0;i<4;i++)
         {
-			if (errno == EAGAIN)
-			{
-				printf("recv() timed out.\n");
-			}
-			else
-			{
-				fprintf(stderr, "recv() failed due to errno = %d\n", errno);
-			}
-		}
-	    printf("Ok received from server!\n");
-	    fclose(fr);
-	}
-	close (sockfd);
-	printf("[Client] Connection lost.\n");
-	return (0);*/
+          close(sockfd[i]);
+        }
+        //break;
+        return 0;
+    }
   }
  }
 }

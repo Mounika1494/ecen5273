@@ -430,7 +430,6 @@ void client_respond(int n)
       rcvd=recv(nsockfd[n],&userinfo,sizeof(userinfo), 0);
       printf("with username is %s and password is %s\n",userinfo.user_name,userinfo.password);
       if(strcmp(userinfo.password,get_info(userinfo.user_name)) == 0){
-        printf("socket is %d\n",nsockfd[n]);
         send(nsockfd[n],"Ok",3,0);
         flag = 1;
       }
@@ -469,7 +468,6 @@ void client_respond(int n)
                 strncpy(filename,fileinfo.filename,fileinfo.name_size);
                 strncpy(foldername,fileinfo.foldername,strlen(fileinfo.foldername));
                 check_fileinfo(nsockfd[n],filename,foldername);
-                printf("socket is %d\n",nsockfd[n]);
                 recv_which_part(nsockfd[n],filename,foldername);
                 break;
                 }
@@ -483,6 +481,7 @@ void client_respond(int n)
                   int fs_block_sz = 0;
                   char* send_buffer = malloc(512);
                   bzero(&fileinfo,sizeof(fileinfo));
+                  bzero(ls_command,40);
                   rcvd = recv(nsockfd[n],&fileinfo,sizeof(fileinfo),0);
                   printf("with filename is %s and foldername is %s\n",fileinfo.filename,fileinfo.foldername);
                   strncpy(foldername,fileinfo.foldername,strlen(fileinfo.foldername));
@@ -519,6 +518,15 @@ void client_respond(int n)
                   }
                   fprintf(stdout, "sent the files.txt\n");
                 }
+                break;
+          case EXIT:
+                for(int i = 0;i<CONNMAX;i++)
+                {
+                  if(nsockfd[i] == -1)
+                  break;
+                  close(nsockfd[i]);
+                }
+                break;
     }
   }
 }
