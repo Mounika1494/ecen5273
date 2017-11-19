@@ -27,6 +27,7 @@ typedef struct p1 {
 
 typedef struct p2 {
      uint8_t name_size;
+     uint8_t folder_size;
      char foldername[255];
      char filename[255];
 }fileinfo_t;
@@ -50,6 +51,8 @@ int size_each[4];
 int part_to_send[8];
 packet_t packet;
 uint8_t file_part_info[4][2];
+int server_in_use[4] = {0,0,0,0};
+
 void error(const char *msg)
 {
 	perror(msg);
@@ -343,6 +346,7 @@ void send_fileinfo(char* filename,char* foldername,int n)
 {
   fileinfo_t fileinfo;
   fileinfo.name_size = strlen(filename);
+  fileinfo.folder_size = strlen(foldername);
   if(filename != NULL)
   strncpy(fileinfo.filename,filename,fileinfo.name_size);
   if(foldername != NULL)
@@ -634,8 +638,11 @@ int main(int argc, char *argv[])
     {
     if (send(sockfd[i], &userinfo,sizeof(userinfo),0) == -1){
         perror("send");
-        exit (1);
+        server_in_use[i] = -1;
+        break;
     }
+    else
+    server_in_use[i] = i;
     printf("socket is %d\n",sockfd[i]);
     recv(sockfd[i], pw_response,3,0);
     if(strcmp(pw_response,"Ok") == 0)
@@ -661,14 +668,14 @@ int main(int argc, char *argv[])
     switch(option)
     {
       case PUT:
-                if(flag == 1)
+              if(flag == 1)
+              {
+                for(int i = 0;i<4;i++)
                 {
-                  for(int i = 0;i<4;i++)
-                  {
-                  if (send(sockfd[i], "put",strlen("put"),0) == -1){
-                      perror("send");
-                      exit (1);
-                    }
+                if (send(sockfd[i], "put",strlen("put"),0) == -1){
+                    perror("send");
+                    exit (1);
+                  }
                 printf("Sent the put command\n");
                 printf("Enter the file name\n");
                 scanf("%s",filename);

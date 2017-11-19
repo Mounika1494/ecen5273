@@ -29,6 +29,7 @@ typedef struct p1 {
 
 typedef struct p2 {
      uint8_t name_size;
+     uint8_t folder_size;
      char foldername[255];
      char filename[255];
 }fileinfo_t;
@@ -455,7 +456,7 @@ void client_respond(int n)
                 rcvd=recv(nsockfd[n],&fileinfo,sizeof(fileinfo), 0);
                 printf("with filename is %s and foldername is %s\n",fileinfo.filename,fileinfo.foldername);
 								strncpy(filename,fileinfo.filename,fileinfo.name_size);
-                strncpy(foldername,fileinfo.foldername,strlen(fileinfo.foldername));
+                strncpy(foldername,fileinfo.foldername,fileinfo.folder_size);
                 recv_file(nsockfd[n],filename,foldername);
                 break;
                 }
@@ -466,7 +467,7 @@ void client_respond(int n)
                 rcvd = recv(nsockfd[n],&fileinfo,sizeof(fileinfo),0);
                 printf("with filename is %s and foldername is %s\n",fileinfo.filename,fileinfo.foldername);
                 strncpy(filename,fileinfo.filename,fileinfo.name_size);
-                strncpy(foldername,fileinfo.foldername,strlen(fileinfo.foldername));
+                strncpy(foldername,fileinfo.foldername,fileinfo.folder_size);
                 check_fileinfo(nsockfd[n],filename,foldername);
                 recv_which_part(nsockfd[n],filename,foldername);
                 break;
@@ -484,7 +485,7 @@ void client_respond(int n)
                   bzero(ls_command,40);
                   rcvd = recv(nsockfd[n],&fileinfo,sizeof(fileinfo),0);
                   printf("with filename is %s and foldername is %s\n",fileinfo.filename,fileinfo.foldername);
-                  strncpy(foldername,fileinfo.foldername,strlen(fileinfo.foldername));
+                  strncpy(foldername,fileinfo.foldername,fileinfo.folder_size);
                   strcat(ls_command,server_folder);
                   strcat(ls_command,"/");
                   strcat(ls_command,userinfo.user_name);
