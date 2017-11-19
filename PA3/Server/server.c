@@ -470,7 +470,7 @@ void client_respond(int n)
                 strncpy(foldername,fileinfo.foldername,fileinfo.folder_size);
                 check_fileinfo(nsockfd[n],filename,foldername);
                 recv_which_part(nsockfd[n],filename,foldername);
-                break;
+                //break;
                 }
                 break;
       case LIST_FILES:

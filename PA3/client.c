@@ -51,12 +51,12 @@ int size_each[4];
 int part_to_send[8];
 packet_t packet;
 uint8_t file_part_info[4][2];
-int server_in_use[4] = {0,0,0,0};
+int con_server = 4;
 
 void error(const char *msg)
 {
 	perror(msg);
-	exit(1);
+	//exit(1);
 }
 //get size of the file
 int get_size(int file_desc)
@@ -96,7 +96,8 @@ int connect_server(int PORT,int n)
 	if ((sockfd[n] = socket(AF_INET, SOCK_STREAM, 0)) == -1)
 	{
 		fprintf(stderr, "ERROR: Failed to obtain Socket Descriptor! (errno = %d)\n",errno);
-		exit(1);
+		//exit(1);
+    con_server = 3;
 	}
 
 	/* Fill the socket address struct */
@@ -109,7 +110,8 @@ int connect_server(int PORT,int n)
 	if (connect(sockfd[n], (struct sockaddr *)&remote_addr, sizeof(struct sockaddr)) == -1)
 	{
 		fprintf(stderr, "ERROR: Failed to connect to the host! (errno = %d)\n",errno);
-		exit(1);
+		//exit(1);
+    con_server = 3;
 	}
 	else
 		printf("[Client] Connected to server at port %d...ok!\n", PORT);
@@ -187,7 +189,7 @@ int send_file(char* filename)
   if(fs == NULL)
   {
     printf("ERROR: File %s not found.\n", filename);
-    exit(1);
+    //exit(1);
   }
   int fs_block_sz;
   int size_sent = 0;
@@ -353,7 +355,7 @@ void send_fileinfo(char* filename,char* foldername,int n)
   strncpy(fileinfo.foldername,foldername,strlen(foldername));
   if (send(sockfd[n], &fileinfo,sizeof(fileinfo),0) == -1){
         perror("send");
-        exit (1);
+        //exit (1);
 }
 }
 
@@ -501,7 +503,7 @@ void ask_file_part()
           if(send(sockfd[k],&j,sizeof(int),0)==-1)
           {
             perror("error sending file part numbers\n");
-            exit(1);
+            //exit(1);
           }
           printf("Requesting %d from %d server",j,k);
           found = 1;
@@ -634,15 +636,14 @@ int main(int argc, char *argv[])
     strcpy(userinfo.user_name,get_info("Username"));
     strcpy(userinfo.password,get_info("Password"));
     printf("Validating the details..\n");
-    for(int i =0;i<4;i++)
+    for(int i =0;i<con_server;i++)
     {
+      printf("i :%d,sockfd[i]:%d\n",i,sockfd[i]);
     if (send(sockfd[i], &userinfo,sizeof(userinfo),0) == -1){
-        perror("send");
-        server_in_use[i] = -1;
-        break;
+        //perror("send");
+        //server_in_use[i] = -1;
+        //break;
     }
-    else
-    server_in_use[i] = i;
     printf("socket is %d\n",sockfd[i]);
     recv(sockfd[i], pw_response,3,0);
     if(strcmp(pw_response,"Ok") == 0)
@@ -670,11 +671,11 @@ int main(int argc, char *argv[])
       case PUT:
               if(flag == 1)
               {
-                for(int i = 0;i<4;i++)
+                for(int i = 0;i<con_server;i++)
                 {
                 if (send(sockfd[i], "put",strlen("put"),0) == -1){
                     perror("send");
-                    exit (1);
+                    //exit (1);
                   }
                 printf("Sent the put command\n");
                 printf("Enter the file name\n");
@@ -686,20 +687,21 @@ int main(int argc, char *argv[])
 
               decision_md5(filename);
               send_file(filename);
-              send_part_file(1);
-              send_part_file(2);
-              send_part_file(3);
-              send_part_file(4);
+              for(int i =0;i<con_server;i++)
+              {
+                send_part_file(i+1);
+              }
+
             }
               break;
      case GET:
               if(flag == 1)
               {
-              for(int i = 0;i<4;i++)
+              for(int i = 0;i<con_server;i++)
               {
               if (send(sockfd[i], "get",strlen("get"),0) == -1){
                   perror("recieve");
-                  exit (1);
+                  //exit (1);
               }
               printf("Sent the get command\n");
               printf("Enter the file name\n");
@@ -734,7 +736,7 @@ int main(int argc, char *argv[])
                 bzero(rec_buf,512);
                 if (send(sockfd[i], "ls",strlen("ls"),0) == -1){
                   perror("recieve");
-                  exit (1);
+                  //exit (1);
               }
               printf("Sent the list command\n");
               printf("Enter the folder name\n");
@@ -810,7 +812,7 @@ int main(int argc, char *argv[])
    {
      if (send(sockfd[i], "exit",strlen("exit"),0) == -1){
        perror("recieve");
-       exit (1);
+       //exit (1);
        }
         for(int i = 0;i<4;i++)
         {
