@@ -376,7 +376,66 @@ void recv_which_part(int sockfd,char *filename,char* foldername)
 else if (rcvd==0)    // receive socket closed
     fprintf(stdout,"Client disconnected upexpectedly.\n");
   fprintf(stdout, "%d part is asked from client\n",part );
-  send_file(sockfd,part,filename,foldername);
+  //send_file(sockfd,part,filename,foldername);
+  char* path = malloc(50);
+  struct stat st = {0};
+  int fs_block_sz = 0;
+  char *size_char = malloc(10);
+  char* part_str = malloc(2);
+  packet_t packet;
+  size_t size;
+  int size_sent = 0;
+  FILE* fp = NULL;
+
+  itoa(part,part_str);
+  strcat(path,server_folder);
+  if(stat(path,&st) == -1){
+   exit(1);
+  }
+  strcat(path,"/");
+  strcat(path,userinfo.user_name);
+  if(stat(path,&st) == -1){
+    exit(1);
+  }
+  strcat(path,"/");
+  strcat(path,foldername);
+  if(stat(path,&st) == -1){
+    exit(1);
+  }
+  strcat(path,"/");
+  strcat(path,".");
+  strcat(path,filename);
+  strcat(path,".");
+  strcat(path,part_str);
+  size = get_filesize(path);
+  fprintf(stdout, "part sending is %s\n",path );
+  fp = fopen(path, "r");
+  while((fs_block_sz = fread(packet.data, sizeof(char), LENGTH, fp)) > 0)
+  {
+    packet.index = part;
+    packet.size_data = fs_block_sz;
+    strcpy(packet.filesize ,itoa(size,size_char));
+    fprintf(stdout,"total filesize:%s packet_index:%d size read:%d %lu\n"
+        ,packet.filesize,packet.index,packet.size_data,sizeof(packet));
+    if(send(sockfd,&packet,sizeof(packet), 0) < 0)
+    {
+        fprintf(stderr, "ERROR: Failed to send file (errno = %d)\n", errno);
+        break;
+    }
+    size_sent = size_sent + fs_block_sz;
+    printf("size of this part :%lu and sent is %d\n",size,size_sent);
+    if(size_sent >= size)
+    {
+      fprintf(stdout, "Part:%lu completed\n",size);
+      break;
+    }
+    for(int i =0;i<1000000;i++);
+    bzero(&packet,sizeof(packet));
+  }
+  fclose(fp);
+  size_sent = 0;
+  fprintf(stdout, "Completed Sending the part: %d\n",part);
+
 }
 
 //get size of the file
@@ -470,7 +529,7 @@ void client_respond(int n)
                 strncpy(foldername,fileinfo.foldername,fileinfo.folder_size);
                 check_fileinfo(nsockfd[n],filename,foldername);
                 recv_which_part(nsockfd[n],filename,foldername);
-                //break;
+                break;
                 }
                 break;
       case LIST_FILES:

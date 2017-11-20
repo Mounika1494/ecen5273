@@ -52,6 +52,8 @@ int part_to_send[8];
 packet_t packet;
 uint8_t file_part_info[4][2];
 int con_server = 4;
+char PORT[4][6];
+void connect_server_again(int k,int j);
 
 void error(const char *msg)
 {
@@ -481,6 +483,30 @@ void recv_file_part(int i)
   }
   //while(1);
 }
+
+//get the information required from ws.conf file
+char* get_info(char *search_string)
+{
+ int fd;
+ char filename[] = "dfc.conf";
+ char buffer[4000];
+ char *found;
+ char *token;
+ fd = open("dfc.conf",O_RDONLY);
+ if(fd == -1)
+ printf("unable to open configuration file\n");
+ read(fd,buffer,get_size(fd));
+ if((found = strstr(buffer,search_string)) != NULL)
+ {
+ token = strtok(found," \t\n");
+ token = strtok(NULL," \t\n");
+ }
+ close(fd);
+ printf("search_string is %s value is %s",search_string,token);
+ return token;
+}
+
+
 void ask_file_part()
 {
   printf("In sending the request for a file part\n");
@@ -491,39 +517,140 @@ void ask_file_part()
   {
     found = 0;
     printf("searching for %d\n",j);
-    int k = j-1;
+    int k = 0;
+      printf("number of connected server is %d",con_server);
     //for(int k = j-1;k<4;k++)//server
-    while(k<4 && k >= 0)
+    while(k < (con_server) && k >= 0)
     {
       for(int i = 0;i<2;i++)//part in server
       {
         printf("%d\n",file_part_info[k][i]);
         if(file_part_info[k][i] == j+48)
         {
+          printf("conneting to server again\n");
+          //connect_server_again(k,j);
+          int fr_block_sz = 0;
+          size_t part_size = 0;
+          char *file_part =  malloc(3);
+          int index = 0;
+          FILE* fr = NULL;
+          size_t size = 0;
+          int first_time = 1;
+          char* pw_response = malloc(3);
+          //char PORT[4][6];
+          char* filename = malloc(10);
+          char* foldername = malloc(10);
+          int option;
+          int flag = 0;
+          userinfo_t userinfo;
+          connect_server(atoi(PORT[k]),k);
+          printf("number of connected server is %d",con_server);
+          strcpy(userinfo.user_name,get_info("Username"));
+          strcpy(userinfo.password,get_info("Password"));
+          printf("Validating the details..\n");
+            printf("sockfd[i]:%d\n",sockfd[k]);
+          if (send(sockfd[k], &userinfo,sizeof(userinfo),0) == -1){
+              //perror("send");
+              //server_in_use[i] = -1;
+              //break;
+          }
+          printf("socket is %d\n",sockfd[k]);
+          recv(sockfd[k], pw_response,3,0);
+          if(strcmp(pw_response,"Ok") == 0)
+            {
+              printf("success\n");
+              flag = 1;
+            }
+            else
+            flag = 0;
+          if(flag == 0)
+          {
+              printf("Invalid Username and Password\n");
+          }
+          if(flag == 1)
+          {
+          if (send(sockfd[k], "get",strlen("get"),0) == -1){
+              perror("recieve");
+              //exit (1);
+          }
+          printf("Enter the file name\n");
+          scanf("%s",filename);
+          printf("Enter the folder name\n");
+          scanf("%s",foldername);
+          send_fileinfo(filename,foldername, k);
+          fprintf(stdout,"socket is %d\n",sockfd[k]);
+          printf("part requested is :%d\n",j);
           if(send(sockfd[k],&j,sizeof(int),0)==-1)
           {
             perror("error sending file part numbers\n");
-            //exit(1);
           }
-          printf("Requesting %d from %d server",j,k);
+          //while(1);
+          //recv_file(sockfd[k]);
+             int fr_block_sz = 0;
+             char *file_part =  malloc(3);
+            fprintf(stdout,"*****waiting for parts\n");
+            while((fr_block_sz = recv(sockfd[k],file_part,3,0)) > 1)
+            {
+              fprintf(stdout,"%s parts are present\n",file_part);
+              //file_part_info[i][0] = *file_part;
+              //file_part_info[i][1] = *(file_part+1);
+              break;
+            }
+
+            fprintf(stdout,"\n*****waiting for parts\n");
+            while((fr_block_sz = recv(sockfd[k],&packet,sizeof(packet),0)) > 0)
+            {
+              index = packet.index;
+              part_size = atoi(packet.filesize);
+              if(first_time == 1)
+              {
+                fr = fopen(itoa(index,file_part),"w");
+              }
+              first_time = 0;
+              if(fr == NULL)
+                printf("File %s Cannot be opened file on server.\n", file_part);
+              int write_sz = fwrite(packet.data, sizeof(char),packet.size_data, fr);
+              if(write_sz < packet.size_data)
+                {
+                    error("File write failed on server.\n");
+                }
+              size = size + packet.size_data;
+              printf("part:%d size %lu bytes recieved %lu\n",index,part_size,size);
+              part_size = atoi(packet.filesize);
+              if(size == part_size)
+              {
+                printf("Done bytes recieved %lu\n",size);
+                break;
+              }
+              bzero(&packet,sizeof(packet));
+            }
+            printf("%d part recieved from %d server\n",index,sockfd[k]);
+            fclose(fr);
+          }
+        /*  if(send(sockfd[k],&j,sizeof(int),0)==-1)
+          {
+            perror("error sending file part numbers\n");
+            //exit(1);
+          }*/
+          fprintf(stdout,"Requesting %d from %d server",j,k);
           found = 1;
           break;
         }
       }
       if (found == 1)
       {
-        recv_file(sockfd[k]);
+        //recv_file(sockfd[k]);
         break;
       }
-      if(k == 3)
+      if(k == (con_server-1))
       {
         flag = 1;
         k = 0;
-        printf("did'nt find so looping back\n");
+        fprintf(stdout,"did'nt find so looping back\n");
       }
-      else if(k<3 && flag == 0)
+      else if(k<(con_server-1) && flag == 0)
       k++;
-      else if(k<3 && flag == 1)
+      else if(k<(con_server-1) && flag == 1)
       {
       k = 0;
       flag = 0;
@@ -585,26 +712,106 @@ void merge_files(char* filename)
   system("rm -f 0 1 2 3 4");
 }
 
-//get the information required from ws.conf file
-char* get_info(char *search_string)
+
+void connect_server_again(int k,int j)
 {
- int fd;
- char filename[] = "dfc.conf";
- char buffer[4000];
- char *found;
- char *token;
- fd = open("dfc.conf",O_RDONLY);
- if(fd == -1)
- printf("unable to open configuration file\n");
- read(fd,buffer,get_size(fd));
- if((found = strstr(buffer,search_string)) != NULL)
- {
- token = strtok(found," \t\n");
- token = strtok(NULL," \t\n");
- }
- close(fd);
- printf("search_string is %s value is %s",search_string,token);
- return token;
+  int fr_block_sz = 0;
+  size_t part_size = 0;
+  char *file_part =  malloc(3);
+  int index = 0;
+  FILE* fr = NULL;
+  size_t size = 0;
+  int first_time = 1;
+  char* pw_response = malloc(3);
+	//char PORT[4][6];
+  char* filename = malloc(10);
+  char* foldername = malloc(10);
+  int option;
+  int flag = 0;
+  userinfo_t userinfo;
+  connect_server(atoi(PORT[k]),k);
+  strcpy(userinfo.user_name,get_info("Username"));
+  strcpy(userinfo.password,get_info("Password"));
+  printf("Validating the details..\n");
+    printf("sockfd[i]:%d\n",sockfd[k]);
+  if (send(sockfd[k], &userinfo,sizeof(userinfo),0) == -1){
+      //perror("send");
+      //server_in_use[i] = -1;
+      //break;
+  }
+  printf("socket is %d\n",sockfd[k]);
+  recv(sockfd[k], pw_response,3,0);
+  if(strcmp(pw_response,"Ok") == 0)
+    {
+      printf("success\n");
+      flag = 1;
+    }
+    else
+    flag = 0;
+  if(flag == 0)
+  {
+      printf("Invalid Username and Password\n");
+  }
+  if(flag == 1)
+  {
+  if (send(sockfd[k], "get",strlen("get"),0) == -1){
+      perror("recieve");
+      //exit (1);
+  }
+  printf("Enter the file name\n");
+  scanf("%s",filename);
+  printf("Enter the folder name\n");
+  scanf("%s",foldername);
+  send_fileinfo(filename,foldername, k);
+  fprintf(stdout,"socket is %d\n",sockfd[k]);
+  printf("part requested is :%d\n",j);
+  if(send(sockfd[k],&j,sizeof(int),0)==-1)
+  {
+    perror("error sending file part numbers\n");
+  }
+  //while(1);
+  //recv_file(sockfd[k]);
+     int fr_block_sz = 0;
+     char *file_part =  malloc(3);
+    fprintf(stdout,"*****waiting for parts\n");
+    while((fr_block_sz = recv(sockfd[k],file_part,3,0)) > 1)
+    {
+      fprintf(stdout,"%s parts are present\n",file_part);
+      //file_part_info[i][0] = *file_part;
+      //file_part_info[i][1] = *(file_part+1);
+      break;
+    }
+
+    fprintf(stdout,"\n*****waiting for parts\n");
+    while((fr_block_sz = recv(sockfd[k],&packet,sizeof(packet),0)) > 0)
+    {
+      index = packet.index;
+      part_size = atoi(packet.filesize);
+      if(first_time == 1)
+      {
+        fr = fopen(itoa(index,file_part),"w");
+      }
+      first_time = 0;
+      if(fr == NULL)
+        printf("File %s Cannot be opened file on server.\n", file_part);
+      int write_sz = fwrite(packet.data, sizeof(char),packet.size_data, fr);
+      if(write_sz < packet.size_data)
+        {
+            error("File write failed on server.\n");
+        }
+      size = size + packet.size_data;
+      printf("part:%d size %lu bytes recieved %lu\n",index,part_size,size);
+      part_size = atoi(packet.filesize);
+      if(size == part_size)
+      {
+        printf("Done bytes recieved %lu\n",size);
+        break;
+      }
+      bzero(&packet,sizeof(packet));
+    }
+    printf("%d part recieved from %d server\n",index,sockfd[k]);
+    fclose(fr);
+}
 }
 
 int main(int argc, char *argv[])
@@ -612,7 +819,7 @@ int main(int argc, char *argv[])
 	/* Variable Declarations*/
   char revbuf[LENGTH];
   char* pw_response = malloc(3);
-	char PORT[4][6];
+
   char* filename = malloc(10);
   char* foldername = malloc(10);
   int option;
@@ -711,6 +918,8 @@ int main(int argc, char *argv[])
               send_fileinfo(filename,foldername, i);
               printf("socket is %d\n",sockfd[i]);
               recv_file_part(i);
+              close(sockfd[i]);
+              printf("closing socket\n");
               }
               ask_file_part();
               merge_files(filename);
@@ -731,7 +940,7 @@ int main(int argc, char *argv[])
               FILE *fp = NULL;
               char *rec_buf = malloc(512);
               fp = fopen("completefile.txt","w");
-              for(int i = 0;i<4;i++)
+              for(int i = 0;i<con_server;i++)
               {
                 bzero(rec_buf,512);
                 if (send(sockfd[i], "ls",strlen("ls"),0) == -1){
@@ -798,7 +1007,11 @@ int main(int argc, char *argv[])
                   printf("*********************\n\n");
                 }
                 else if(flag == 0)
-                printf("%s INCOMPLETE\n\n",name);
+                {
+                  printf("*****************************\n\n");
+                printf("\n\n%s INCOMPLETE\n\n",name);
+                printf("*****************************\n\n");
+                }
           }
 
           bzero(token,strlen(token));
